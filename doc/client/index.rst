@@ -1,7 +1,8 @@
-.. idpyoic documentation master file
+.. oicrp documentation master file, created by
+   sphinx-quickstart on Fri Feb 23 13:32:06 2018.
 
-Client documentation!
-=====================
+IdPyOIDC client documentation!
+==============================
 
 .. image:: _images/oid-l-certification-mark-l-rgb-150dpi-90mm-300x157.png
   :width: 300
@@ -11,9 +12,8 @@ Client documentation!
    :maxdepth: 2
 
    rp_handler.rst
+   oidcrp.rst
    add_on/index.rst
-   config.rst
-   service/index.rst
 
 Indices and tables
 ==================

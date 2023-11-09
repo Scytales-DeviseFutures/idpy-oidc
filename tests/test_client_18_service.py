@@ -35,13 +35,12 @@ class TestDummyService(object):
             "client_id": "client_id",
             "client_secret": "a longesh password",
             "redirect_uris": ["https://example.com/cli/authz_cb"],
-            "preference": {"response_types": ["code"]},
+            "behaviour": {"response_types": ["code"]},
         }
-
         service = {"dummy": {"class": DummyService}}
 
         entity = Entity(config=config, services=service)
-        self.service = DummyService(upstream_get=entity.unit_get, conf={})
+        self.service = DummyService(client_get=entity.client_get, conf={})
 
     def test_construct(self):
         req_args = {"foo": "bar"}

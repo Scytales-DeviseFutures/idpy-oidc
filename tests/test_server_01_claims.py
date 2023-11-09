@@ -128,9 +128,9 @@ class TestEndpoint(object):
     @pytest.fixture(autouse=True)
     def create_idtoken(self):
         self.server = Server(conf)
-        # self.context = EndpointContext(conf=conf, upstream_get=self.upstream_get)
-        self.context = self.server.context
-        self.context.cdb["client_1"] = {
+        # self.endpoint_context = EndpointContext(conf=conf, server_get=self.server_get)
+        self.endpoint_context = self.server.endpoint_context
+        self.endpoint_context.cdb["client_1"] = {
             "client_secret": "hemligtochintekort",
             "redirect_uris": [("https://example.com/cb", None)],
             "client_salt": "salted",
@@ -139,12 +139,9 @@ class TestEndpoint(object):
             "add_claims": {
                 "always": {},
             },
-            "allowed_scopes": ["openid", "profile", "email", "address", "phone", "offline_access"],
         }
-        self.server.get_attribute("keyjar").add_symmetric(
-            "client_1", "hemligtochintekort", ["sig", "enc"]
-        )
-        self.claims_interface = self.context.claims_interface
+        self.endpoint_context.keyjar.add_symmetric("client_1", "hemligtochintekort", ["sig", "enc"])
+        self.claims_interface = self.endpoint_context.claims_interface
 
         self.user_id = USER_ID
 
@@ -157,7 +154,7 @@ class TestEndpoint(object):
 
         client_id = authz_req["client_id"]
         ae = create_authn_event(self.user_id)
-        return self.context.session_manager.create_session(
+        return self.endpoint_context.session_manager.create_session(
             ae, authz_req, self.user_id, client_id=client_id, sub_type=sub_type
         )
 
@@ -184,7 +181,7 @@ class TestEndpoint(object):
 
     def test_get_claims_id_token_1(self):
         session_id = self._create_session(AREQ)
-        self.context.session_manager.token_handler["id_token"].kwargs = {
+        self.endpoint_context.session_manager.token_handler["id_token"].kwargs = {
             "base_claims": {"email": None, "email_verified": None}
         }
         claims = self.claims_interface.get_claims(session_id, [], "id_token")
@@ -192,11 +189,11 @@ class TestEndpoint(object):
 
     def test_get_claims_id_token_2(self):
         session_id = self._create_session(AREQ)
-        self.context.session_manager.token_handler["id_token"].kwargs = {
+        self.endpoint_context.session_manager.token_handler["id_token"].kwargs = {
             "base_claims": {"email": None, "email_verified": None},
             "enable_claims_per_client": True,
         }
-        self.context.cdb["client_1"]["add_claims"]["always"]["id_token"] = [
+        self.endpoint_context.cdb["client_1"]["add_claims"]["always"]["id_token"] = [
             "name",
             "email",
         ]
@@ -206,12 +203,12 @@ class TestEndpoint(object):
 
     def test_get_claims_id_token_3(self):
         session_id = self._create_session(AREQ)
-        self.context.session_manager.token_handler["id_token"].kwargs = {
+        self.endpoint_context.session_manager.token_handler["id_token"].kwargs = {
             "base_claims": {"email": None, "email_verified": None},
             "enable_claims_per_client": True,
             "add_claims_by_scope": True,
         }
-        self.context.cdb["client_1"]["add_claims"]["always"]["id_token"] = [
+        self.endpoint_context.cdb["client_1"]["add_claims"]["always"]["id_token"] = [
             "name",
             "email",
         ]
@@ -227,16 +224,16 @@ class TestEndpoint(object):
 
     def test_get_claims_id_token_and_userinfo(self):
         session_id = self._create_session(AREQ)
-        self.context.session_manager.token_handler["id_token"].kwargs = {
+        self.endpoint_context.session_manager.token_handler["id_token"].kwargs = {
             "base_claims": {"email": None, "email_verified": None},
             "enable_claims_per_client": True,
             "add_claims_by_scope": True,
         }
-        self.context.cdb["client_1"]["add_claims"]["always"]["id_token"] = [
+        self.endpoint_context.cdb["client_1"]["add_claims"]["always"]["id_token"] = [
             "name",
             "email",
         ]
-        self.context.cdb["client_1"]["add_claims"]["always"]["userinfo"] = [
+        self.endpoint_context.cdb["client_1"]["add_claims"]["always"]["userinfo"] = [
             "phone",
             "phone_verified",
         ]
@@ -255,13 +252,13 @@ class TestEndpoint(object):
         }
 
     def test_get_claims_access_token_3(self):
-        _module = self.context.session_manager.token_handler["access_token"]
+        _module = self.endpoint_context.session_manager.token_handler["access_token"]
         _module.kwargs = {
             "base_claims": {"email": None, "email_verified": None},
             "enable_claims_per_client": True,
             "add_claims_by_scope": True,
         }
-        self.context.cdb["client_1"]["add_claims"]["always"]["access_token"] = [
+        self.endpoint_context.cdb["client_1"]["add_claims"]["always"]["access_token"] = [
             "name",
             "email",
         ]

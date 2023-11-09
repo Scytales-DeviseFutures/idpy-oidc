@@ -124,11 +124,3 @@ class CapabilitiesMisMatch(OidcEndpointError):
 
 class MultipleCodeUsage(OidcEndpointError):
     pass
-
-
-class InvalidBranchID(OidcEndpointError):
-    pass
-
-
-class ClientGrantMismatch(OidcEndpointError):
-    pass

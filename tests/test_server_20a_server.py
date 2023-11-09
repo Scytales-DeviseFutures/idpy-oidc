@@ -1,16 +1,16 @@
-from copy import copy
-from copy import deepcopy
 import io
 import json
 import os
+from copy import copy
+from copy import deepcopy
 
-from cryptojwt.key_jar import build_keyjar
 import yaml
+from cryptojwt.key_jar import build_keyjar
 
 from idpyoidc.server import Server
 from idpyoidc.server.configure import OPConfiguration
 from idpyoidc.server.login_hint import LoginHintLookup
-from idpyoidc.server.oauth2.add_on.pkce import add_support
+from idpyoidc.server.oidc.add_on.pkce import add_pkce_support
 from idpyoidc.server.oidc.authorization import Authorization
 from idpyoidc.server.oidc.provider_config import ProviderConfiguration
 from idpyoidc.server.oidc.registration import Registration
@@ -73,7 +73,7 @@ CONF = {
         }
     },
     "claims_interface": {"class": "idpyoidc.server.session.claims.ClaimsInterface", "kwargs": {}},
-    "add_on": {"pkce": {"function": add_support, "kwargs": {"essential": True}}},
+    "add_ons": {"pkce": {"function": add_pkce_support, "kwargs": {"essential": True}}},
     "template_dir": "template",
     "login_hint_lookup": {"class": LoginHintLookup, "kwargs": {}},
     "session_params": SESSION_PARAMS,
@@ -117,27 +117,31 @@ def test_capabilities_default():
     configuration = OPConfiguration(conf=_conf, base_path=BASEDIR, domain="127.0.0.1", port=443)
 
     server = Server(configuration)
-    assert set(server.context.provider_info["response_types_supported"]) == {
+    assert set(server.endpoint_context.provider_info["response_types_supported"]) == {
         "code",
+        "token",
         "id_token",
+        "code token",
         "code id_token",
+        "id_token token",
+        "code id_token token",
     }
-    assert server.context.provider_info["request_uri_parameter_supported"] is True
-    assert server.context.get_preference("jwks_uri") == "https://127.0.0.1:443/static/jwks.json"
+    assert server.endpoint_context.provider_info["request_uri_parameter_supported"] is True
+    assert server.endpoint_context.jwks_uri == "https://127.0.0.1:443/static/jwks.json"
 
 
 def test_capabilities_subset1():
     _cnf = deepcopy(CONF)
-    _cnf["response_types_supported"] = ["code"]
+    _cnf["capabilities"] = {"response_types_supported": ["code"]}
     server = Server(_cnf)
-    assert server.context.provider_info["response_types_supported"] == ["code"]
+    assert server.endpoint_context.provider_info["response_types_supported"] == ["code"]
 
 
 def test_capabilities_subset2():
     _cnf = deepcopy(CONF)
-    _cnf["response_types_supported"] = ["code", "id_token"]
+    _cnf["capabilities"] = {"response_types_supported": ["code", "id_token"]}
     server = Server(_cnf)
-    assert set(server.context.provider_info["response_types_supported"]) == {
+    assert set(server.endpoint_context.provider_info["response_types_supported"]) == {
         "code",
         "id_token",
     }
@@ -145,18 +149,18 @@ def test_capabilities_subset2():
 
 def test_capabilities_bool():
     _cnf = deepcopy(CONF)
-    _cnf["request_uri_parameter_supported"] = False
+    _cnf["capabilities"] = {"request_uri_parameter_supported": False}
     server = Server(_cnf)
-    assert server.context.provider_info["request_uri_parameter_supported"] is False
+    assert server.endpoint_context.provider_info["request_uri_parameter_supported"] is False
 
 
 def test_cdb():
     _cnf = deepcopy(CONF)
     server = Server(_cnf)
     _clients = yaml.safe_load(io.StringIO(client_yaml))
-    server.context.cdb = _clients["oidc_clients"]
+    server.endpoint_context.cdb = _clients["oidc_clients"]
 
-    assert set(server.context.cdb.keys()) == {"client1", "client2", "client3"}
+    assert set(server.endpoint_context.cdb.keys()) == {"client1", "client2", "client3"}
 
 
 def test_cdb_afs():
@@ -166,4 +170,4 @@ def test_cdb_afs():
         "kwargs": {"fdir": full_path("afs"), "value_conv": "idpyoidc.util.JSON"},
     }
     server = Server(_cnf)
-    assert isinstance(server.context.cdb, AbstractFileSystem)
+    assert isinstance(server.endpoint_context.cdb, AbstractFileSystem)

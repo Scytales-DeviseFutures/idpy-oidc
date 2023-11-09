@@ -80,11 +80,11 @@ def deserialize_from_one_of(val, msgtype, sformat):
     raise FormatError("Unexpected format")
 
 
-def json_ser(val, sformat=None):
+def json_ser(val, sformat=None, lev=0):
     return json.dumps(val)
 
 
-def json_deser(val, sformat=None):
+def json_deser(val, sformat=None, lev=0):
     return json.loads(val)
 
 
@@ -108,14 +108,14 @@ def claims_deser(val, sformat="urlencoded"):
     return deserialize_from_one_of(val, Claims, sformat)
 
 
-def msg_ser_json(inst, sformat="json"):
+def msg_ser_json(inst, sformat="json", lev=0):
     # sformat = "json" always except when dict
-    # if lev:
-    #     sformat = "dict"
+    if lev:
+        sformat = "dict"
 
     if sformat == "dict":
         if isinstance(inst, Message):
-            res = inst.serialize(sformat)
+            res = inst.serialize(sformat, lev)
         elif isinstance(inst, dict):
             res = inst
         else:
@@ -125,18 +125,18 @@ def msg_ser_json(inst, sformat="json"):
         if isinstance(inst, dict):
             res = json.dumps(inst)
         elif isinstance(inst, Message):
-            res = inst.serialize(sformat)
+            res = inst.serialize(sformat, lev)
         else:
             res = inst
 
     return res
 
 
-def msg_list_ser(insts, sformat):
-    return [msg_ser(inst, sformat) for inst in insts]
+def msg_list_ser(insts, sformat, lev=0):
+    return [msg_ser(inst, sformat, lev) for inst in insts]
 
 
-def claims_ser(val, sformat="urlencoded"):
+def claims_ser(val, sformat="urlencoded", lev=0):
     # everything in c_extension
     if isinstance(val, str):
         item = val
@@ -146,12 +146,15 @@ def claims_ser(val, sformat="urlencoded"):
         item = val
 
     if isinstance(item, Message):
-        return item.serialize(method=sformat)
+        return item.serialize(method=sformat, lev=lev + 1)
 
     if sformat == "urlencoded":
         res = urlencode(item)
     elif sformat == "json":
-        res = json.dumps(item)
+        if lev:
+            res = item
+        else:
+            res = json.dumps(item)
     elif sformat == "dict":
         if isinstance(item, dict):
             res = item
@@ -240,7 +243,6 @@ ID_TOKEN_VERIFY_ARGS = [
     "encenc",
     "sigalg",
     "issuer",
-    "iss",
     "allow_missing_kid",
     "no_kid_issuer",
     "trusting",
@@ -289,7 +291,7 @@ def verify_id_token(msg, check_hash=False, claim="id_token", **kwargs):
         _signed = False
         _sign_alg = kwargs.get("sigalg")
         if _sign_alg == "none":
-            pass
+            _allowed = True
         else:  # There might or might not be a specified signing alg
             if kwargs.get("allow_sign_alg_none", False) is False:
                 logger.info("Signing algorithm None not allowed")
@@ -451,6 +453,8 @@ class AuthorizationRequest(oauth2.AuthorizationRequest):
         Authorization Request and in the OpenID Request Object MUST exactly
         match."""
         super(AuthorizationRequest, self).verify(**kwargs)
+
+        clear_verified_claims(self)
 
         args = {}
         for arg in ["keyjar", "opponent_id", "sender", "alg", "encalg", "encenc"]:
@@ -634,9 +638,8 @@ class RegistrationRequest(Message):
         "frontchannel_logout_session_required": SINGLE_OPTIONAL_BOOLEAN,
         "backchannel_logout_uri": SINGLE_OPTIONAL_STRING,
         "backchannel_logout_session_required": SINGLE_OPTIONAL_BOOLEAN,
-        # "federation_type": OPTIONAL_LIST_OF_STRINGS,
-        # "organization_name": SINGLE_OPTIONAL_STRING,
-        "response_modes": OPTIONAL_LIST_OF_STRINGS,
+        "federation_type": OPTIONAL_LIST_OF_STRINGS,
+        "organization_name": SINGLE_OPTIONAL_STRING,
     }
     c_default = {"application_type": "web", "response_types": ["code"]}
     c_allowed_values = {
@@ -768,9 +771,9 @@ class IdToken(OpenIDSchema):
         else:
             self.pack_init()
 
-    def to_jwt(self, key=None, algorithm="", lifetime=0):
+    def to_jwt(self, key=None, algorithm="", lev=0, lifetime=0):
         self.pack(alg=algorithm, lifetime=lifetime)
-        return Message.to_jwt(self, key=key, algorithm=algorithm)
+        return Message.to_jwt(self, key=key, algorithm=algorithm, lev=lev)
 
     def verify(self, **kwargs):
         super(IdToken, self).verify(**kwargs)
@@ -900,8 +903,7 @@ class ProviderConfigurationResponse(ResponseMessage):
             "frontchannel_logout_supported": SINGLE_OPTIONAL_BOOLEAN,
             "frontchannel_logout_session_required": SINGLE_OPTIONAL_BOOLEAN,
             "backchannel_logout_supported": SINGLE_OPTIONAL_BOOLEAN,
-            "backchannel_logout_session_required": SINGLE_OPTIONAL_BOOLEAN,
-            "code_challenge_methods_supported": OPTIONAL_LIST_OF_STRINGS,
+            "backchannel_logout_session_required": SINGLE_OPTIONAL_BOOLEAN
             # "jwk_encryption_url": SINGLE_OPTIONAL_STRING,
             # "x509_url": SINGLE_REQUIRED_STRING,
             # "x509_encryption_url": SINGLE_OPTIONAL_STRING,
@@ -914,7 +916,7 @@ class ProviderConfigurationResponse(ResponseMessage):
         "request_parameter_supported": False,
         "request_uri_parameter_supported": True,
         "require_request_uri_registration": True,
-        "grant_types_supported": ["authorization_code"],
+        "grant_types_supported": ["authorization_code", "implicit"],
     }
 
     def verify(self, **kwargs):
@@ -1088,7 +1090,7 @@ def link_deser(val, sformat="urlencoded"):
         return _l_deser(val, sformat)
 
 
-def link_ser(inst, sformat):
+def link_ser(inst, sformat, lev=0):
     if sformat in ["urlencoded", "json"]:
         if isinstance(inst, dict):
             if sformat == "json":
@@ -1096,12 +1098,12 @@ def link_ser(inst, sformat):
             else:
                 res = urlencode([(k, v) for k, v in inst.items()])
         elif isinstance(inst, Link):
-            res = inst.serialize(sformat)
+            res = inst.serialize(sformat, lev)
         else:
             res = inst
     elif sformat == "dict":
         if isinstance(inst, Link):
-            res = inst.serialize(sformat)
+            res = inst.serialize(sformat, lev)
         elif isinstance(inst, dict):
             res = inst
         elif isinstance(inst, str):  # Iff ID Token
@@ -1114,7 +1116,7 @@ def link_ser(inst, sformat):
     return res
 
 
-def link_list_ser(inst, sformat):
+def link_list_ser(inst, sformat, lev=0):
     if isinstance(inst, list):
         return [link_ser(v, sformat) for v in inst]
     else:
@@ -1193,40 +1195,3 @@ def make_openid_request(
         _jwt.lifetime = lifetime
     return _jwt.pack(arq.to_dict(), owner=issuer, recv=recv)
 
-
-def claims_match(value, claimspec):
-    """
-    Implements matching according to section 5.5.1 of
-    http://openid.net/specs/openid-connect-core-1_0.html
-    The lack of value is not checked here.
-    Also the text doesn't prohibit claims specification having both 'value'
-    and 'values'.
-
-    :param value: single value
-    :param claimspec: None or a dictionary with 'essential', 'value' or 'values'
-        as keys
-    :return: Boolean
-    """
-    if claimspec is None:  # match anything
-        return True
-
-    matched = False
-    for key, val in claimspec.items():
-        if key == "value":
-            if value == val:
-                matched = True
-        elif key == "values":
-            if value in val:
-                matched = True
-        elif key == "essential":
-            # Whether it's essential or not doesn't change anything here
-            continue
-
-        if matched:
-            break
-
-    # No values to test against so it's just about being there or not
-    if list(claimspec.keys()) == ["essential"]:
-        return True
-
-    return matched

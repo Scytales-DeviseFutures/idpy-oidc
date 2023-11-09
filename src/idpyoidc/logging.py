@@ -4,6 +4,8 @@ import os
 from logging.config import dictConfig
 from typing import Optional
 
+import yaml
+
 from idpyoidc.util import load_config_file
 
 LOGGING_CONF = "logging.yaml"

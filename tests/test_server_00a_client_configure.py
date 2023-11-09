@@ -9,7 +9,7 @@ from tests import full_path
 
 BASEDIR = os.path.abspath(os.path.dirname(__file__))
 
-EXTRA = {
+extra = {
     "token_usage_rules": {
         "authorization_code": {
             "expires_in": 600,
@@ -34,14 +34,14 @@ EXTRA = {
                 ],
                 "policy": {
                     "urn:ietf:params:oauth:token-type:access_token": {
-                        "function": "/path/to/function",
+                        "callable": "/path/to/callable",
                         "kwargs": {"audience": ["https://example.com"], "scopes": ["openid"]},
                     },
                     "urn:ietf:params:oauth:token-type:refresh_token": {
-                        "function": "/path/to/function",
+                        "callable": "/path/to/callable",
                         "kwargs": {"resource": ["https://example.com"], "scopes": ["openid"]},
                     },
-                    "": {"function": "/path/to/function", "kwargs": {"scopes": ["openid"]}},
+                    "": {"callable": "/path/to/callable", "kwargs": {"scopes": ["openid"]}},
                 },
             },
         },
@@ -106,9 +106,9 @@ def test_verify_oidc_client_information_complext():
         }
     }
 
-    client_conf["client1"].update(EXTRA)
+    client_conf["client1"].update(extra)
 
-    res = verify_oidc_client_information(client_conf, upstream_get=server.upstream_get)
+    res = verify_oidc_client_information(client_conf, server_get=server.server_get)
     assert res
     for cli, _cli_conf in res.items():
         print(_cli_conf.extra())
@@ -135,5 +135,5 @@ def test_verify_oidc_client_information_2():
         }
     }
 
-    res = verify_oidc_client_information(client_conf, upstream_get=server.upstream_get)
+    res = verify_oidc_client_information(client_conf, server_get=server.server_get)
     assert res

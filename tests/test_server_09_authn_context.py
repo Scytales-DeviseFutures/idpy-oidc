@@ -65,7 +65,7 @@ CAPABILITIES = {
     "claim_types_supported": ["normal", "aggregated", "distributed"],
     "claims_parameter_supported": True,
     "request_parameter_supported": True,
-    # "request_uri_parameter_supported": True,
+    "request_uri_parameter_supported": True,
 }
 
 BASEDIR = os.path.abspath(os.path.dirname(__file__))
@@ -150,8 +150,8 @@ class TestAuthnBrokerEC:
         # cookie_handler = CookieHandler(**cookie_conf)
         # server = Server(conf, cookie_handler=cookie_handler)
         server = Server(conf)
-        context = server.context
-        context.cdb["client_1"] = {
+        endpoint_context = server.endpoint_context
+        endpoint_context.cdb["client_1"] = {
             "client_secret": "hemligt",
             "redirect_uris": [("https://example.com/cb", None)],
             "client_salt": "salted",
@@ -164,18 +164,20 @@ class TestAuthnBrokerEC:
                 "code id_token token",
             ],
         }
-        server.keyjar.import_jwks(server.keyjar.export_jwks(True, ""), conf["issuer"])
+        endpoint_context.keyjar.import_jwks(
+            endpoint_context.keyjar.export_jwks(True, ""), conf["issuer"]
+        )
 
         self.server = server
 
     def test_pick_authn_one(self):
         request = {"acr_values": INTERNETPROTOCOLPASSWORD}
-        res = pick_auth(self.server.get_context(), request)
+        res = pick_auth(self.server.server_get("endpoint_context"), request)
         assert res["acr"] == INTERNETPROTOCOLPASSWORD
 
     def test_pick_authn_all(self):
         request = {"acr_values": INTERNETPROTOCOLPASSWORD}
-        res = pick_auth(self.server.get_context(), request, pick_all=True)
+        res = pick_auth(self.server.server_get("endpoint_context"), request, pick_all=True)
         assert len(res) == 2
 
 

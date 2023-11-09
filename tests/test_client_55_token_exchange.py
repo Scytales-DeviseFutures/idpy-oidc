@@ -52,22 +52,28 @@ class TestUserInfo(object):
             "requests_dir": "requests",
             "base_url": "https://example.com/cli/",
         }
-        entity = Entity(
-            keyjar=make_keyjar(),
-            config=client_config,
-            services={
-                "discovery": {"class": "idpyoidc.client.oauth2.server_metadata.ServerMetadata"},
-                "authorization": {"class": "idpyoidc.client.oauth2.authorization.Authorization"},
-                "access_token": {"class": "idpyoidc.client.oauth2.access_token.AccessToken"},
-                "token_exchange": {"class": "idpyoidc.client.oauth2.token_exchange.TokenExchange"},
-            },
-        )
-        entity.get_context().issuer = "https://example.com"
-        self.service = entity.get_service("token_exchange")
-        _cstate = self.service.upstream_get("context").cstate
+        entity = Entity(keyjar=make_keyjar(), config=client_config,
+                        services={
+                            "discovery": {
+                                "class":
+                                    "idpyoidc.client.oauth2.server_metadata.ServerMetadata"},
+                            "authorization": {
+                                "class": "idpyoidc.client.oauth2.authorization.Authorization"},
+                            "access_token": {
+                                "class": "idpyoidc.client.oauth2.access_token.AccessToken"},
+                            "token_exchange": {
+                                "class":
+                                    "idpyoidc.client.oauth2.token_exchange.TokenExchange"
+                            },
+                        }
+                        )
+        entity.client_get("service_context").issuer = "https://example.com"
+        self.service = entity.client_get("service", "token_exchange")
+
+        _state_interface = self.service.client_get("service_context").state
         # Add history
-        auth_response = AuthorizationResponse(code="access_code")
-        _cstate.update("abcde", auth_response)
+        auth_response = AuthorizationResponse(code="access_code").to_json()
+        _state_interface.store_item(auth_response, "auth_response", "abcde")
 
         idtval = {"nonce": "KUEYfRM2VzKDaaKD", "sub": "diana", "iss": ISS, "aud": "client_id"}
         idt = create_jws(idtval)
@@ -76,8 +82,8 @@ class TestUserInfo(object):
 
         token_response = AccessTokenResponse(
             access_token="access_token", id_token=idt, __verified_id_token=ver_idt
-        )
-        _cstate.update("abcde", token_response)
+        ).to_json()
+        _state_interface.store_item(token_response, "token_response", "abcde")
 
     def test_construct(self):
         _req = self.service.construct(state="abcde")

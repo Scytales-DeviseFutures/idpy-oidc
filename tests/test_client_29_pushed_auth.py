@@ -1,9 +1,9 @@
 import json
 import os
 
+from cryptojwt.key_jar import init_key_jar
 import pytest
 import responses
-from cryptojwt.key_jar import init_key_jar
 
 from idpyoidc.client.defaults import DEFAULT_OAUTH2_SERVICES
 from idpyoidc.client.oauth2 import Client
@@ -32,10 +32,10 @@ class TestPushedAuth:
             "client_id": "client_id",
             "client_secret": "a longesh password",
             "redirect_uris": ["https://example.com/cli/authz_cb"],
-            "preference": {"response_types": ["code"]},
+            "behaviour": {"response_types": ["code"]},
             "add_ons": {
                 "pushed_authorization": {
-                    "function": "idpyoidc.client.oauth2.add_on.par.add_support",
+                    "function": "idpyoidc.client.oauth2.add_on.pushed_authorization.add_support",
                     "kwargs": {
                         "body_format": "jws",
                         "signing_algorithm": "RS256",
@@ -47,18 +47,18 @@ class TestPushedAuth:
         }
         self.entity = Client(keyjar=CLI_KEY, config=config, services=DEFAULT_OAUTH2_SERVICES)
 
-        self.entity.get_context().provider_info = {
+        self.entity.client_get("service_context").provider_info = {
             "pushed_authorization_request_endpoint": "https://as.example.com/push"
         }
 
     def test_authorization(self):
-        auth_service = self.entity.get_service("authorization")
+        auth_service = self.entity.client_get("service", "authorization")
         req_args = {"foo": "bar", "response_type": "code"}
         with responses.RequestsMock() as rsps:
             _resp = {"request_uri": "urn:example:bwc4JK-ESC0w8acc191e-Y1LTC2", "expires_in": 3600}
             rsps.add(
                 "GET",
-                auth_service.upstream_get("context").provider_info[
+                auth_service.client_get("service_context").provider_info[
                     "pushed_authorization_request_endpoint"
                 ],
                 body=json.dumps(_resp),

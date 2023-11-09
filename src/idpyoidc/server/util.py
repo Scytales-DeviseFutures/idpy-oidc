@@ -1,5 +1,7 @@
 import json
 import logging
+from typing import Optional
+from typing import Union
 
 from idpyoidc.util import importer
 from .exception import OidcEndpointError
@@ -9,7 +11,7 @@ logger = logging.getLogger(__name__)
 OAUTH2_NOCACHE_HEADERS = [("Pragma", "no-cache"), ("Cache-Control", "no-store")]
 
 
-def build_endpoints(conf, upstream_get, issuer):
+def build_endpoints(conf, server_get, issuer):
     """
     conf typically contains::
 
@@ -22,7 +24,7 @@ def build_endpoints(conf, upstream_get, issuer):
     This function uses class and kwargs to instantiate a class instance with kwargs.
 
     :param conf:
-    :param upstream_get: Callback function
+    :param server_get: Callback function
     :param issuer:
     :return:
     """
@@ -38,9 +40,9 @@ def build_endpoints(conf, upstream_get, issuer):
 
         # class can be a string (class path) or a class reference
         if isinstance(spec["class"], str):
-            _instance = importer(spec["class"])(upstream_get=upstream_get, **kwargs)
+            _instance = importer(spec["class"])(server_get=server_get, **kwargs)
         else:
-            _instance = spec["class"](upstream_get=upstream_get, **kwargs)
+            _instance = spec["class"](server_get=server_get, **kwargs)
 
         try:
             _path = spec["path"]
@@ -50,6 +52,12 @@ def build_endpoints(conf, upstream_get, issuer):
 
         _instance.endpoint_path = _path
         _instance.full_path = "{}/{}".format(_url, _path)
+
+        # if _instance.endpoint_name:
+        #     try:
+        #         _instance.endpoint_info[_instance.endpoint_name] = _instance.full_path
+        #     except TypeError:
+        #         _instance.endpoint_info = {_instance.endpoint_name: _instance.full_path}
 
         endpoint[_instance.name] = _instance
 
@@ -93,7 +101,7 @@ def lv_unpack(txt):
     while txt:
         l, v = txt.split(":", 1)
         res.append(v[: int(l)])
-        txt = v[int(l) :]
+        txt = v[int(l):]
     return res
 
 
@@ -120,17 +128,17 @@ def get_http_params(config):
     return params
 
 
-def allow_refresh_token(context):
+def allow_refresh_token(endpoint_context):
     # Are there a refresh_token handler
-    refresh_token_handler = context.session_manager.token_handler.handler.get("refresh_token")
-    if refresh_token_handler is None:
-        return False
+    refresh_token_handler = endpoint_context.session_manager.token_handler.handler.get(
+        "refresh_token"
+    )
 
     # Is refresh_token grant type supported
     _token_supported = False
-    _supported = context.get_preference("grant_types_supported")
-    if _supported:
-        if "refresh_token" in _supported:
+    _cap = endpoint_context.conf.get("capabilities")
+    if _cap:
+        if "refresh_token" in _cap["grant_types_supported"]:
             # self.allow_refresh = kwargs.get("allow_refresh", True)
             _token_supported = True
 

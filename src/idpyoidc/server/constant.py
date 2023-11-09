@@ -1,3 +1,5 @@
+import os
+
 # from cryptojwt.jwe.fernet import DEFAULT_ITERATIONS
 
 DEF_SIGN_ALG = {
@@ -15,5 +17,3 @@ JWT_BEARER = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
 DIVIDER = ";;"
 
 DEFAULT_TOKEN_LIFETIME = 1800
-
-DEFAULT_REQUESTED_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:access_token"

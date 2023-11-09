@@ -47,9 +47,9 @@ class UserAuthnMethod(object):
     url_endpoint = "/verify"
     FAILED_AUTHN = (None, True)
 
-    def __init__(self, upstream_get=None, **kwargs):
+    def __init__(self, server_get=None, **kwargs):
         self.query_param = "upm_answer"
-        self.upstream_get = upstream_get
+        self.server_get = server_get
         self.kwargs = kwargs
 
     def __call__(self, **kwargs):
@@ -90,7 +90,7 @@ class UserAuthnMethod(object):
         raise NotImplementedError
 
     def unpack_token(self, token):
-        return verify_signed_jwt(token=token, keyjar=self.upstream_get("context").keyjar)
+        return verify_signed_jwt(token=token, keyjar=self.server_get("endpoint_context").keyjar)
 
     def done(self, areq):
         """
@@ -106,7 +106,7 @@ class UserAuthnMethod(object):
             return False
 
     def cookie_info(self, cookie: List[dict], client_id: str) -> dict:
-        _context = self.upstream_get("context")
+        _context = self.server_get("endpoint_context")
         logger.debug("Value cookies: {}".format(cookie))
 
         if cookie is None:
@@ -119,13 +119,8 @@ class UserAuthnMethod(object):
                 # verify session ID
                 try:
                     _context.session_manager[_info["sid"]]
-                except (
-                    KeyError,
-                    ValueError,
-                    InconsistentDatabase,
-                    NoSuchClientSession,
-                    NoSuchGrant,
-                ) as err:
+                except (KeyError, ValueError, InconsistentDatabase,
+                        NoSuchClientSession, NoSuchGrant) as err:
                     logger.info(f"Verifying session ID fail due to {err}")
                     return {}
 
@@ -158,16 +153,16 @@ class UserPassJinja2(UserAuthnMethod):
     url_endpoint = "/verify/user_pass_jinja"
 
     def __init__(
-        self,
-        db,
-        template_handler,
-        template="user_pass.jinja2",
-        upstream_get=None,
-        verify_endpoint="",
-        **kwargs,
+            self,
+            db,
+            template_handler,
+            template="user_pass.jinja2",
+            server_get=None,
+            verify_endpoint="",
+            **kwargs,
     ):
 
-        super(UserPassJinja2, self).__init__(upstream_get=upstream_get)
+        super(UserPassJinja2, self).__init__(server_get=server_get)
         self.template_handler = template_handler
         self.template = template
 
@@ -195,13 +190,12 @@ class UserPassJinja2(UserAuthnMethod):
             ),
             OnlyForTestingWarning,
         )
-        if not self.upstream_get:
-            raise Exception(f"{self.__class__.__name__} doesn't have a working upstream_get")
-        _context = self.upstream_get("context")
-        _keyjar = self.upstream_get("attribute", "keyjar")
+        if not self.server_get:
+            raise Exception(f"{self.__class__.__name__} doesn't have a working server_get")
+        _context = self.server_get("endpoint_context")
         # Stores information need afterwards in a signed JWT that then
         # appears as a hidden input in the form
-        jws = create_signed_jwt(_context.issuer, _keyjar, **kwargs)
+        jws = create_signed_jwt(_context.issuer, _context.keyjar, **kwargs)
         _kwargs = self.kwargs.copy()
         for attr in ["policy", "tos", "logo"]:
             _uri = "{}_uri".format(attr)
@@ -223,31 +217,9 @@ class UserPassJinja2(UserAuthnMethod):
             raise FailedAuthentication()
 
 
-class UserPass(UserAuthnMethod):
-    def __init__(
-        self,
-        db_conf,
-        upstream_get=None,
-        **kwargs,
-    ):
-
-        super(UserPass, self).__init__(upstream_get=upstream_get)
-        self.user_db = instantiate(db_conf["class"], **db_conf["kwargs"])
-
-    def __call__(self, **kwargs):
-        pass
-
-    def verify(self, *args, **kwargs):
-        username = kwargs["username"]
-        if username in self.user_db and self.user_db[username] == kwargs["password"]:
-            return username
-        else:
-            raise FailedAuthentication()
-
-
 class BasicAuthn(UserAuthnMethod):
-    def __init__(self, pwd, ttl=5, upstream_get=None):
-        UserAuthnMethod.__init__(self, upstream_get=upstream_get)
+    def __init__(self, pwd, ttl=5, server_get=None):
+        UserAuthnMethod.__init__(self, server_get=server_get)
         self.passwd = pwd
         self.ttl = ttl
 
@@ -276,11 +248,10 @@ class BasicAuthn(UserAuthnMethod):
 
 
 class SymKeyAuthn(UserAuthnMethod):
-
     # user authentication using a token
 
-    def __init__(self, ttl, symkey, upstream_get=None):
-        UserAuthnMethod.__init__(self, upstream_get=upstream_get)
+    def __init__(self, ttl, symkey, server_get=None):
+        UserAuthnMethod.__init__(self, server_get=server_get)
 
         if symkey is not None and symkey == "":
             msg = "SymKeyAuthn.symkey cannot be an empty value"
@@ -311,11 +282,10 @@ class SymKeyAuthn(UserAuthnMethod):
 
 
 class NoAuthn(UserAuthnMethod):
-
     # Just for testing allows anyone it without authentication
 
-    def __init__(self, user, upstream_get=None):
-        UserAuthnMethod.__init__(self, upstream_get=upstream_get)
+    def __init__(self, user, server_get=None):
+        UserAuthnMethod.__init__(self, server_get=server_get)
         self.user = user
         self.fail = None
 

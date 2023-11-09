@@ -28,8 +28,13 @@ KEYJAR.import_jwks(KEYJAR.export_jwks(True, ISSUER), "")
 
 RESPONSE_TYPES_SUPPORTED = [
     ["code"],
+    ["token"],
     ["id_token"],
+    ["code", "token"],
     ["code", "id_token"],
+    ["id_token", "token"],
+    ["code", "token", "id_token"],
+    ["none"],
 ]
 
 CAPABILITIES = {
@@ -50,7 +55,7 @@ CAPABILITIES = {
     "claim_types_supported": ["normal", "aggregated", "distributed"],
     "claims_parameter_supported": True,
     "request_parameter_supported": True,
-    # "request_uri_parameter_supported": True,
+    "request_uri_parameter_supported": True,
 }
 
 AUTH_REQ = AuthorizationRequest(
@@ -71,7 +76,7 @@ class TestEndpoint(object):
             "issuer": ISSUER,
             "httpc_params": {"verify": False, "timeout": 1},
             "capabilities": CAPABILITIES,
-            "add_on": {
+            "add_ons": {
                 "extra_args": {
                     "function": "idpyoidc.server.oauth2.add_on.extra_args.add_support",
                     "kwargs": {"authorization": {"iss": "issuer"}},
@@ -131,19 +136,18 @@ class TestEndpoint(object):
             "session_params": SESSION_PARAMS,
         }
         server = Server(OPConfiguration(conf, base_path=BASEDIR), keyjar=KEYJAR)
-        self.context = server.context
-        self.context.cdb["client_1"] = {
+        self.endpoint_context = server.endpoint_context
+        self.endpoint_context.cdb["client_1"] = {
             "client_secret": "hemligt",
             "redirect_uris": [("https://example.com/cb", None)],
             "client_salt": "salted",
             "token_endpoint_auth_method": "client_secret_post",
             "response_types": ["code", "token", "code id_token", "id_token"],
-            "allowed_scopes": ["openid", "profile", "email", "address", "phone", "offline_access"],
         }
-        self.endpoint = server.get_endpoint("authorization")
+        self.endpoint = server.server_get("endpoint", "authorization")
 
     def test_process_request(self):
-        _context = self.endpoint.upstream_get("context")
+        _context = self.endpoint.server_get("endpoint_context")
         assert _context.add_on["extra_args"] == {"authorization": {"iss": "issuer"}}
 
         _pr_resp = self.endpoint.parse_request(AUTH_REQ)

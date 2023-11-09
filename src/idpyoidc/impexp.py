@@ -86,8 +86,10 @@ class ImpExp:
     ) -> Any:
         if load_args:
             _kwargs = {"load_args": load_args}
+            _load_args = load_args
         else:
             _kwargs = {}
+            _load_args = {}
 
         if init_args:
             _kwargs["init_args"] = init_args
@@ -141,11 +143,7 @@ class ImpExp:
             _load_args = {}
 
         if init_args:
-            for attr, val in init_args.items():
-                if attr in self.init_args:
-                    setattr(self, attr, val)
-
-        _kwargs["init_args"] = init_args
+            _kwargs["init_args"] = init_args
 
         for attr, cls in self.parameter.items():
             if attr not in item or attr in self.special_load_dump:

@@ -164,17 +164,21 @@ class TestEndpoint(object):
             "session_params": SESSION_PARAMS,
         }
         server = Server(ASConfiguration(conf=conf, base_path=BASEDIR), cwd=BASEDIR)
-        context = server.context
+        endpoint_context = server.endpoint_context
         _clients = yaml.safe_load(io.StringIO(client_yaml))
-        context.cdb = verify_oidc_client_information(_clients["oidc_clients"])
-        server.keyjar.import_jwks(server.keyjar.export_jwks(True, ""), conf["issuer"])
+        endpoint_context.cdb = verify_oidc_client_information(_clients["oidc_clients"])
+        endpoint_context.keyjar.import_jwks(
+            endpoint_context.keyjar.export_jwks(True, ""), conf["issuer"]
+        )
 
         self.rp_keyjar = init_key_jar(key_defs=KEYDEFS, issuer_id="s6BhdRkqt3")
         # Add RP's keys to the OP's keyjar
-        server.keyjar.import_jwks(self.rp_keyjar.export_jwks(issuer_id="s6BhdRkqt3"), "s6BhdRkqt3")
+        endpoint_context.keyjar.import_jwks(
+            self.rp_keyjar.export_jwks(issuer_id="s6BhdRkqt3"), "s6BhdRkqt3"
+        )
 
-        self.pushed_authorization_endpoint = server.get_endpoint("pushed_authorization")
-        self.authorization_endpoint = server.get_endpoint("authorization")
+        self.pushed_authorization_endpoint = server.server_get("endpoint", "pushed_authorization")
+        self.authorization_endpoint = server.server_get("endpoint", "authorization")
 
     def test_init(self):
         assert self.pushed_authorization_endpoint
@@ -195,7 +199,6 @@ class TestEndpoint(object):
             "code_challenge_method",
             "client_id",
             "code_challenge",
-            "authenticated",
         }
 
     def test_pushed_auth_request(self):
@@ -222,7 +225,6 @@ class TestEndpoint(object):
             "code_challenge",
             "request",
             "__verified_request",
-            "authenticated",
         }
 
     def test_pushed_auth_urlencoded_process(self):
@@ -241,7 +243,6 @@ class TestEndpoint(object):
             "code_challenge_method",
             "client_id",
             "code_challenge",
-            "authenticated",
         }
 
         _resp = self.pushed_authorization_endpoint.process_request(_req)

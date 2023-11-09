@@ -3,6 +3,7 @@ import logging
 from typing import Optional
 
 from cryptojwt import as_unicode
+from cryptojwt.jwe.fernet import FernetEncrypter
 
 from idpyoidc.encrypter import init_encrypter
 from idpyoidc.server.util import lv_pack

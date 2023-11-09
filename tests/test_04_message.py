@@ -191,7 +191,8 @@ class TestMessage(object):
         )
         keyjar = KeyJar()
         keyjar.add_symmetric("", b"A1B2C3D4E5F6G7H8")
-        jws = item.to_jwt(key=keyjar.get_signing_key("oct"), algorithm="HS256")
+        jws = item.to_jwt(key=keyjar.get_signing_key("oct"), algorithm="HS256",
+                          jwt_type="https://example.org/dummy")
 
         jitem = DummyMessage().from_jwt(jws, keyjar)
 
@@ -199,6 +200,7 @@ class TestMessage(object):
             jitem.keys(),
             ["opt_str", "req_str", "opt_json", "req_str_list", "opt_str_list", "opt_int"],
         )
+        assert 'typ' in jitem.jws_header and jitem.jws_header['typ'] == "https://example.org/dummy"
 
     def test_to_from_jwe(self):
         msg = DummyMessage(
@@ -336,7 +338,7 @@ def test_to_jwe(keytype, alg, enc):
 
 def test_to_dict_with_message_obj():
     content = Message(a={"a": {"foo": {"bar": [{"bat": []}]}}})
-    _dict = content.to_dict()
+    _dict = content.to_dict(lev=0)
     content_fixture = {"a": {"a": {"foo": {"bar": [{"bat": []}]}}}}
     assert _dict == content_fixture
 
@@ -344,7 +346,7 @@ def test_to_dict_with_message_obj():
 def test_to_dict_with_raw_types():
     msg = Message(c_default=[])
     content_fixture = {"c_default": []}
-    _dict = msg.to_dict()
+    _dict = msg.to_dict(lev=1)
     assert _dict == content_fixture
 
 

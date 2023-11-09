@@ -17,10 +17,11 @@ from idpyoidc.server import Server
 from idpyoidc.server.configure import ASConfiguration
 from idpyoidc.server.configure import OPConfiguration
 from idpyoidc.server.cookie_handler import CookieHandler
-from idpyoidc.server.oauth2.add_on.pkce import CC_METHOD
-from idpyoidc.server.oauth2.add_on.pkce import add_support
+from idpyoidc.server.oidc.add_on.pkce import CC_METHOD
+from idpyoidc.server.oidc.add_on.pkce import add_pkce_support
 from idpyoidc.server.oidc.authorization import Authorization
 from idpyoidc.server.oidc.token import Token
+
 from . import CRYPT_CONFIG
 from . import SESSION_PARAMS
 from . import full_path
@@ -92,15 +93,10 @@ oidc_clients:
     'token_endpoint_auth_method': 'client_secret_post'
     'response_types':
         - 'code'
+        - 'token'
         - 'code id_token'
         - 'id_token'
-    allowed_scopes:
-        - 'openid'
-        - 'profile'
-        - 'email'
-        - 'address'
-        - 'phone'
-        - 'offline_access'
+        - 'code id_token token'
   client2:
     client_secret: "spraket"
     redirect_uris:
@@ -108,13 +104,6 @@ oidc_clients:
       - ['https://app2.example.net/bar', '']
     response_types:
       - code
-    allowed_scopes:
-        - 'openid'
-        - 'profile'
-        - 'email'
-        - 'address'
-        - 'phone'
-        - 'offline_access'
   client3:
     client_secret: '2222222222222222222222222222222222222222'
     redirect_uris:
@@ -122,13 +111,6 @@ oidc_clients:
     post_logout_redirect_uri: ['https://openidconnect.net/', '']
     response_types:
       - code
-    allowed_scopes:
-        - 'openid'
-        - 'profile'
-        - 'email'
-        - 'address'
-        - 'phone'
-        - 'offline_access'
 """
 
 
@@ -167,9 +149,9 @@ def conf():
             }
         },
         "template_dir": "template",
-        "add_on": {
+        "add_ons": {
             "pkce": {
-                "function": "idpyoidc.server.oauth2.add_on.pkce.add_support",
+                "function": "idpyoidc.server.oidc.add_on.pkce.add_pkce_support",
                 "kwargs": {"essential": True},
             }
         },
@@ -225,10 +207,12 @@ def _code_challenge():
 def create_server(config):
     server = Server(ASConfiguration(conf=config, base_path=BASEDIR), cwd=BASEDIR)
 
-    context = server.context
+    endpoint_context = server.endpoint_context
     _clients = yaml.safe_load(io.StringIO(client_yaml))
-    context.cdb = _clients["oidc_clients"]
-    server.keyjar.import_jwks(server.keyjar.export_jwks(True, ""), config["issuer"])
+    endpoint_context.cdb = _clients["oidc_clients"]
+    endpoint_context.keyjar.import_jwks(
+        endpoint_context.keyjar.export_jwks(True, ""), config["issuer"]
+    )
     return server
 
 
@@ -236,12 +220,12 @@ class TestEndpoint(object):
     @pytest.fixture(autouse=True)
     def create_endpoint(self, conf):
         server = create_server(conf)
-        self.session_manager = server.context.session_manager
-        self.authn_endpoint = server.get_endpoint("authorization")
-        self.token_endpoint = server.get_endpoint("token")
+        self.session_manager = server.endpoint_context.session_manager
+        self.authn_endpoint = server.server_get("endpoint", "authorization")
+        self.token_endpoint = server.server_get("endpoint", "token")
 
     def test_unsupported_code_challenge_methods(self, conf):
-        conf["add_on"]["pkce"]["kwargs"]["code_challenge_methods"] = ["dada"]
+        conf["add_ons"]["pkce"]["kwargs"]["code_challenge_methods"] = ["dada"]
 
         with pytest.raises(ValueError) as exc:
             create_server(conf)
@@ -299,10 +283,10 @@ class TestEndpoint(object):
         assert _pr_resp["error_description"] == "Missing required code_challenge"
 
     def test_not_essential(self, conf):
-        conf["add_on"]["pkce"]["kwargs"]["essential"] = False
+        conf["add_ons"]["pkce"]["kwargs"]["essential"] = False
         server = create_server(conf)
-        authn_endpoint = server.get_endpoint("authorization")
-        token_endpoint = server.get_endpoint("token")
+        authn_endpoint = server.server_get("endpoint", "authorization")
+        token_endpoint = server.server_get("endpoint", "token")
         _authn_req = AUTH_REQ.copy()
 
         _pr_resp = authn_endpoint.parse_request(_authn_req.to_dict())
@@ -317,13 +301,13 @@ class TestEndpoint(object):
         assert isinstance(_req, Message)
 
     def test_essential_per_client(self, conf):
-        conf["add_on"]["pkce"]["kwargs"]["essential"] = False
+        conf["add_ons"]["pkce"]["kwargs"]["essential"] = False
         server = create_server(conf)
-        authn_endpoint = server.get_endpoint("authorization")
-        token_endpoint = server.get_endpoint("token")
+        authn_endpoint = server.server_get("endpoint", "authorization")
+        token_endpoint = server.server_get("endpoint", "token")
         _authn_req = AUTH_REQ.copy()
-        context = server.get_context()
-        context.cdb[AUTH_REQ["client_id"]]["pkce_essential"] = True
+        endpoint_context = server.server_get("endpoint_context")
+        endpoint_context.cdb[AUTH_REQ["client_id"]]["pkce_essential"] = True
 
         _pr_resp = authn_endpoint.parse_request(_authn_req.to_dict())
 
@@ -332,13 +316,13 @@ class TestEndpoint(object):
         assert _pr_resp["error_description"] == "Missing required code_challenge"
 
     def test_not_essential_per_client(self, conf):
-        conf["add_on"]["pkce"]["kwargs"]["essential"] = True
+        conf["add_ons"]["pkce"]["kwargs"]["essential"] = True
         server = create_server(conf)
-        authn_endpoint = server.get_endpoint("authorization")
-        token_endpoint = server.get_endpoint("token")
+        authn_endpoint = server.server_get("endpoint", "authorization")
+        token_endpoint = server.server_get("endpoint", "token")
         _authn_req = AUTH_REQ.copy()
-        context = server.get_context()
-        context.cdb[AUTH_REQ["client_id"]]["pkce_essential"] = False
+        endpoint_context = server.server_get("endpoint_context")
+        endpoint_context.cdb[AUTH_REQ["client_id"]]["pkce_essential"] = False
 
         _pr_resp = authn_endpoint.parse_request(_authn_req.to_dict())
         resp = authn_endpoint.process_request(_pr_resp)
@@ -357,6 +341,24 @@ class TestEndpoint(object):
         _authn_req["code_challenge_method"] = "doupa"
 
         _pr_resp = self.authn_endpoint.parse_request(_authn_req.to_dict())
+
+        assert isinstance(_pr_resp, AuthorizationErrorResponse)
+        assert _pr_resp["error"] == "invalid_request"
+        assert _pr_resp["error_description"] == "Unsupported code_challenge_method={}".format(
+            _authn_req["code_challenge_method"]
+        )
+
+    def test_unsupported_code_challenge_method(self, conf):
+        conf["add_ons"]["pkce"]["kwargs"]["code_challenge_methods"] = ["plain"]
+        server = create_server(conf)
+        authn_endpoint = server.server_get("endpoint", "authorization")
+
+        _cc_info = _code_challenge()
+        _authn_req = AUTH_REQ.copy()
+        _authn_req["code_challenge"] = _cc_info["code_challenge"]
+        _authn_req["code_challenge_method"] = _cc_info["code_challenge_method"]
+
+        _pr_resp = authn_endpoint.parse_request(_authn_req.to_dict())
 
         assert isinstance(_pr_resp, AuthorizationErrorResponse)
         assert _pr_resp["error"] == "invalid_request"
@@ -415,9 +417,9 @@ def test_missing_authz_endpoint():
     }
     configuration = OPConfiguration(conf, base_path=BASEDIR, domain="127.0.0.1", port=443)
     server = Server(configuration)
-    add_support(server.get_endpoints())
+    add_pkce_support(server.server_get("endpoints"))
 
-    assert "pkce" not in server.get_context().args
+    assert "pkce" not in server.server_get("endpoint_context").args
 
 
 def test_missing_token_endpoint():
@@ -440,6 +442,6 @@ def test_missing_token_endpoint():
     }
     configuration = OPConfiguration(conf, base_path=BASEDIR, domain="127.0.0.1", port=443)
     server = Server(configuration)
-    add_support(server.get_endpoints())
+    add_pkce_support(server.server_get("endpoints"))
 
-    assert "pkce" not in server.get_context().args
+    assert "pkce" not in server.server_get("endpoint_context").args

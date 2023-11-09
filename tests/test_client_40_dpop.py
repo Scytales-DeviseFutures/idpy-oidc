@@ -29,25 +29,25 @@ class TestDPoPWithoutUserinfo:
             "client_id": "client_id",
             "client_secret": "a longesh password",
             "redirect_uris": ["https://example.com/cli/authz_cb"],
-            "preference": {"response_types": ["code"]},
+            "behaviour": {"response_types": ["code"]},
             "add_ons": {
                 "dpop": {
                     "function": "idpyoidc.client.oauth2.add_on.dpop.add_support",
-                    "kwargs": {"dpop_signing_alg_values_supported": ["ES256", "ES512"]},
+                    "kwargs": {"signing_algorithms": ["ES256", "ES512"]},
                 }
             },
         }
 
         self.client = Client(keyjar=CLI_KEY, config=config, services=DEFAULT_OAUTH2_SERVICES)
 
-        self.client.get_context().provider_info = {
+        self.client.client_get("service_context").provider_info = {
             "authorization_endpoint": "https://example.com/auth",
             "token_endpoint": "https://example.com/token",
             "dpop_signing_alg_values_supported": ["RS256", "ES256"],
         }
 
     def test_add_header(self):
-        token_serv = self.client.get_service("accesstoken")
+        token_serv = self.client.client_get("service", "accesstoken")
         req_args = {
             "grant_type": "authorization_code",
             "code": "SplxlOBeZQQYbYS6WxSbIA",
@@ -77,17 +77,19 @@ class TestDPoPWithUserinfo:
             "client_id": "client_id",
             "client_secret": "a longesh password",
             "redirect_uris": ["https://example.com/cli/authz_cb"],
-            "preference": {"response_types": ["code"]},
+            "behaviour": {"response_types": ["code"]},
             "add_ons": {
                 "dpop": {
                     "function": "idpyoidc.client.oauth2.add_on.dpop.add_support",
-                    "kwargs": {"dpop_signing_alg_values_supported": ["ES256", "ES512"]},
+                    "kwargs": {"signing_algorithms": ["ES256", "ES512"]},
                 }
             },
         }
 
         services = {
-            "discovery": {"class": "idpyoidc.client.oauth2.server_metadata.ServerMetadata"},
+            "discovery": {
+                "class": "idpyoidc.client.oauth2.server_metadata.ServerMetadata"
+            },
             "authorization": {"class": "idpyoidc.client.oauth2.authorization.Authorization"},
             "access_token": {"class": "idpyoidc.client.oauth2.access_token.AccessToken"},
             "refresh_access_token": {
@@ -97,7 +99,7 @@ class TestDPoPWithUserinfo:
         }
         self.client = Client(keyjar=CLI_KEY, config=config, services=services)
 
-        self.client.get_context().provider_info = {
+        self.client.client_get("service_context").provider_info = {
             "authorization_endpoint": "https://example.com/auth",
             "token_endpoint": "https://example.com/token",
             "dpop_signing_alg_values_supported": ["RS256", "ES256"],
@@ -105,7 +107,7 @@ class TestDPoPWithUserinfo:
         }
 
     def test_add_header_token(self):
-        token_serv = self.client.get_service("accesstoken")
+        token_serv = self.client.client_get("service", "accesstoken")
         req_args = {
             "grant_type": "authorization_code",
             "code": "SplxlOBeZQQYbYS6WxSbIA",
@@ -128,7 +130,7 @@ class TestDPoPWithUserinfo:
         assert _header["jwk"]["crv"] == "P-256"
 
     def test_add_header_userinfo(self):
-        userinfo_serv = self.client.get_service("userinfo")
+        userinfo_serv = self.client.client_get("service", "userinfo")
         req_args = {}
         access_token = "access.token.sign"
         headers = userinfo_serv.get_headers(

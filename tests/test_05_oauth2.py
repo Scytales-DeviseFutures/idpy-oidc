@@ -268,7 +268,7 @@ class TestAuthorizationRequest(object):
             "&response_type=code&client_id=0123456789"
         )
         ar = AuthorizationRequest().deserialize(query, "urlencoded")
-        ar.verify()
+        assert ar.verify()
 
     def test_load_dict(self):
         bib = {
@@ -571,15 +571,16 @@ class TestAuthorizationResponse(object):
 class TestROPCAccessTokenRequest(object):
     def test_init(self):
         ropc = ROPCAccessTokenRequest(grant_type="password", username="johndoe", password="A3ddj3w")
-        ropc.verify()
+
+        assert ropc["grant_type"] == "password"
         assert ropc["username"] == "johndoe"
         assert ropc["password"] == "A3ddj3w"
 
 
 class TestCCAccessTokenRequest(object):
     def test_init(self):
-        cc = CCAccessTokenRequest(scope="/foo", grant_type="client_credentials")
-        cc.verify()
+        cc = CCAccessTokenRequest(scope="/foo")
+        assert cc["grant_type"] == "client_credentials"
         assert cc["scope"] == ["/foo"]
 
 

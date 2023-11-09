@@ -95,7 +95,7 @@ class TestEndpoint(object):
                 "registration": {
                     "path": "registration",
                     "class": Registration,
-                    "kwargs": {"client_authn_method": ["none"]},
+                    "kwargs": {"client_auth_method": None},
                 },
                 "registration_api": {
                     "path": "registration_api",
@@ -125,11 +125,9 @@ class TestEndpoint(object):
             "session_params": SESSION_PARAMS,
         }
         server = Server(OPConfiguration(conf=conf, base_path=BASEDIR), cwd=BASEDIR)
-        self.registration_endpoint = server.get_endpoint("registration")
-        self.registration_api_endpoint = server.get_endpoint("registration_read")
-        server.context.cdb["client_1"] = {
-            "redirect_uris": [("https://example.com/cb", ""), ("https://example.com/2nd_cb", "")]
-        }
+        self.registration_endpoint = server.server_get("endpoint", "registration")
+        self.registration_api_endpoint = server.server_get("endpoint", "registration_read")
+        server.endpoint_context.cdb["client_1"] = {}
 
     def test_do_response(self):
         _req = self.registration_endpoint.parse_request(CLI_REQ.to_json())
@@ -151,7 +149,7 @@ class TestEndpoint(object):
             "client_id={}".format(_resp["response_args"]["client_id"]),
             http_info=http_info,
         )
-        assert set(_api_req.keys()) == {"client_id", "authenticated"}
+        assert set(_api_req.keys()) == {"client_id"}
 
         _info = self.registration_api_endpoint.process_request(request=_api_req)
         assert set(_info.keys()) == {"response_args"}

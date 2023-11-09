@@ -14,7 +14,7 @@ from idpyoidc.server.authn_event import create_authn_event
 from idpyoidc.server.client_authn import verify_client
 from idpyoidc.server.configure import OPConfiguration
 from idpyoidc.server.oauth2.add_on.dpop import DPoPProof
-from idpyoidc.server.oauth2.add_on.dpop import token_post_parse_request
+from idpyoidc.server.oauth2.add_on.dpop import post_parse_request
 from idpyoidc.server.oauth2.authorization import Authorization
 from idpyoidc.server.oidc.token import Token
 from idpyoidc.server.user_authn.authn_context import INTERNETPROTOCOLPASSWORD
@@ -66,8 +66,13 @@ KEYJAR.import_jwks(KEYJAR.export_jwks(True, ISSUER), "")
 
 RESPONSE_TYPES_SUPPORTED = [
     ["code"],
+    ["token"],
     ["id_token"],
+    ["code", "token"],
     ["code", "id_token"],
+    ["id_token", "token"],
+    ["code", "token", "id_token"],
+    ["none"],
 ]
 
 CAPABILITIES = {
@@ -80,10 +85,15 @@ CAPABILITIES = {
     ],
     "response_modes_supported": ["query", "fragment", "form_post"],
     "subject_types_supported": ["public", "pairwise", "ephemeral"],
+    "grant_types_supported": [
+        "authorization_code",
+        "implicit",
+        "urn:ietf:params:oauth:grant-type:jwt-bearer",
+    ],
     "claim_types_supported": ["normal", "aggregated", "distributed"],
     "claims_parameter_supported": True,
     "request_parameter_supported": True,
-    # "request_uri_parameter_supported": True,
+    "request_uri_parameter_supported": True,
 }
 
 AUTH_REQ = AuthorizationRequest(
@@ -112,7 +122,7 @@ class TestEndpoint(object):
             "issuer": ISSUER,
             "httpc_params": {"verify": False, "timeout": 1},
             "capabilities": CAPABILITIES,
-            "add_on": {
+            "add_ons": {
                 "dpop": {
                     "function": "idpyoidc.server.oauth2.add_on.dpop.add_support",
                     "kwargs": {"dpop_signing_alg_values_supported": ["ES256"]},
@@ -154,11 +164,7 @@ class TestEndpoint(object):
                     "class": Authorization,
                     "kwargs": {},
                 },
-                "token": {
-                    "path": "{}/token",
-                    "class": Token,
-                    "kwargs": {"client_authn_method": ["none"]},
-                },
+                "token": {"path": "{}/token", "class": Token, "kwargs": {}},
             },
             "client_authn": verify_client,
             "authentication": {
@@ -176,18 +182,17 @@ class TestEndpoint(object):
             "session_params": SESSION_PARAMS,
         }
         server = Server(OPConfiguration(conf, base_path=BASEDIR), keyjar=KEYJAR)
-        self.context = server.context
-        self.context.cdb["client_1"] = {
+        self.endpoint_context = server.endpoint_context
+        self.endpoint_context.cdb["client_1"] = {
             "client_secret": "hemligt",
             "redirect_uris": [("https://example.com/cb", None)],
             "client_salt": "salted",
             "token_endpoint_auth_method": "client_secret_post",
             "response_types": ["code", "token", "code id_token", "id_token"],
-            "allowed_scopes": ["openid", "profile", "email", "address", "phone", "offline_access"],
         }
         self.user_id = "diana"
-        self.token_endpoint = server.get_endpoint("token")
-        self.session_manager = self.context.session_manager
+        self.token_endpoint = server.server_get("endpoint", "token")
+        self.session_manager = self.endpoint_context.session_manager
 
     def _create_session(self, auth_req, sub_type="public", sector_identifier=""):
         if sector_identifier:
@@ -209,7 +214,7 @@ class TestEndpoint(object):
         # Constructing an authorization code is now done
         _code = grant.mint_token(
             session_id=session_id,
-            context=self.context,
+            endpoint_context=self.endpoint_context,
             token_class="authorization_code",
             token_handler=self.session_manager.token_handler["authorization_code"],
             usage_rules=usage_rules,
@@ -223,10 +228,10 @@ class TestEndpoint(object):
         return _code
 
     def test_post_parse_request(self):
-        auth_req = token_post_parse_request(
+        auth_req = post_parse_request(
             AUTH_REQ,
             AUTH_REQ["client_id"],
-            self.context,
+            self.endpoint_context,
             http_info={
                 "headers": {"dpop": DPOP_HEADER},
                 "url": "https://server.example.com/token",
@@ -242,7 +247,7 @@ class TestEndpoint(object):
         code = self._mint_code(grant, AUTH_REQ["client_id"])
 
         _token_request = TOKEN_REQ.to_dict()
-        _context = self.context
+        _context = self.endpoint_context
         _token_request["code"] = code.value
         _req = self.token_endpoint.parse_request(
             _token_request,
@@ -268,5 +273,5 @@ class TestEndpoint(object):
         _session_info = self.session_manager.get_session_info_by_token(
             access_token, handler_key="access_token"
         )
-        _token = self.session_manager.find_token(_session_info["branch_id"], access_token)
+        _token = self.session_manager.find_token(_session_info["session_id"], access_token)
         assert _token.token_type == "DPoP"

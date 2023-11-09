@@ -2,9 +2,9 @@ import os
 import sys
 import time
 
+import pytest
 from cryptojwt.jwk.rsa import import_private_rsa_key_from_file
 from cryptojwt.key_bundle import KeyBundle
-import pytest
 
 from idpyoidc.client.configure import RPHConfiguration
 from idpyoidc.client.exception import OidcServiceError
@@ -65,8 +65,8 @@ class TestClient(object):
             "response_type": ["code"],
         }
 
-        self.client.get_context().cstate.set("ABCDE", {"iss": "issuer"})
-        msg = self.client.get_service("authorization").construct(request_args=req_args)
+        self.client.client_get("service_context").state.create_state("issuer", key="ABCDE")
+        msg = self.client.client_get("service", "authorization").construct(request_args=req_args)
         assert isinstance(msg, AuthorizationRequest)
         assert msg["client_id"] == "client_1"
         assert msg["redirect_uri"] == "https://example.com/auth_cb"
@@ -74,20 +74,24 @@ class TestClient(object):
     def test_construct_accesstoken_request(self):
         # Bind access code to state
         req_args = {}
-        _context = self.client.get_context()
-        _context.cstate.set("ABCDE", {"issuer": "issuer"})
+        _context = self.client.client_get("service_context")
+        _context.state.create_state("issuer", "ABCDE")
 
         auth_request = AuthorizationRequest(
             redirect_uri="https://example.com/cli/authz_cb", state="ABCDE"
         )
 
-        _context.cstate.update("ABCDE", auth_request)
+        _context.state.store_item(auth_request, "auth_request", "ABCDE")
 
         auth_response = AuthorizationResponse(code="access_code")
 
-        self.client.get_context().cstate.update("ABCDE", auth_response)
+        self.client.client_get("service_context").state.store_item(
+            auth_response, "auth_response", "ABCDE"
+        )
 
-        msg = self.client.get_service("accesstoken").construct(request_args=req_args, state="ABCDE")
+        msg = self.client.client_get("service", "accesstoken").construct(
+            request_args=req_args, state="ABCDE"
+        )
 
         assert isinstance(msg, AccessTokenRequest)
         assert msg.to_dict() == {
@@ -100,26 +104,25 @@ class TestClient(object):
         }
 
     def test_construct_refresh_token_request(self):
-        _context = self.client.get_context()
-        _state = "ABCDE"
-        _context.cstate.set(_state, {"iss": "issuer"})
+        _context = self.client.client_get("service_context")
+        _context.state.create_state("issuer", "ABCDE")
 
         auth_request = AuthorizationRequest(
             redirect_uri="https://example.com/cli/authz_cb", state="state"
         )
 
-        _context.cstate.update(_state, auth_request)
+        _context.state.store_item(auth_request, "auth_request", "ABCDE")
 
         auth_response = AuthorizationResponse(code="access_code")
 
-        _context.cstate.update(_state, auth_response)
+        _context.state.store_item(auth_response, "auth_response", "ABCDE")
 
         token_response = AccessTokenResponse(refresh_token="refresh_with_me", access_token="access")
 
-        _context.cstate.update(_state, token_response)
+        _context.state.store_item(token_response, "token_response", "ABCDE")
 
         req_args = {}
-        msg = self.client.get_service("refresh_token").construct(
+        msg = self.client.client_get("service", "refresh_token").construct(
             request_args=req_args, state="ABCDE"
         )
         assert isinstance(msg, RefreshAccessTokenRequest)
@@ -134,7 +137,7 @@ class TestClient(object):
         err = ResponseMessage(error="Illegal")
         http_resp = MockResponse(400, err.to_urlencoded())
         resp = self.client.parse_request_response(
-            self.client.get_service("authorization"), http_resp
+            self.client.client_get("service", "authorization"), http_resp
         )
 
         assert resp["error"] == "Illegal"
@@ -144,7 +147,9 @@ class TestClient(object):
         err = ResponseMessage(error="Illegal")
         http_resp = MockResponse(500, err.to_urlencoded())
         with pytest.raises(ParseError):
-            self.client.parse_request_response(self.client.get_service("authorization"), http_resp)
+            self.client.parse_request_response(
+                self.client.client_get("service", "authorization"), http_resp
+            )
 
     def test_error_response_2(self):
         err = ResponseMessage(error="Illegal")
@@ -153,11 +158,12 @@ class TestClient(object):
         )
 
         with pytest.raises(OidcServiceError):
-            self.client.parse_request_response(self.client.get_service("authorization"), http_resp)
+            self.client.parse_request_response(
+                self.client.client_get("service", "authorization"), http_resp
+            )
 
 
 BASE_URL = "https://example.com"
-
 
 class TestClient2(object):
     @pytest.fixture(autouse=True)
@@ -177,20 +183,25 @@ class TestClient2(object):
                 "read_only": False,
             },
             "clients": {
-                "service_1": {
-                    "client_id": "client_1",
+                "client_1": {
                     "client_secret": "abcdefghijklmnop",
                     "redirect_uris": ["https://example.com/cli/authz_cb"],
                 }
             },
         }
         rp_conf = RPHConfiguration(conf)
-        rp_handler = RPHandler(base_url=BASE_URL, config=rp_conf)
-        self.client = rp_handler.init_client(issuer="service_1")
+        rp_handler = RPHandler(base_url=BASE_URL,config=rp_conf)
+        self.client = rp_handler.init_client(issuer="client_1")
         assert self.client
 
     def test_keyjar(self):
-        _keyjar = self.client.get_attribute("keyjar")
-        assert len(_keyjar) == 2  # one issuer
-        assert len(_keyjar[""]) == 3
-        assert len(_keyjar.get("sig")) == 3
+        req_args = {
+            "state": "ABCDE",
+            "redirect_uri": "https://example.com/auth_cb",
+            "response_type": ["code"],
+        }
+
+        _context = self.client.client_get("service_context")
+        assert len(_context.keyjar) == 1  # one issuer
+        assert len(_context.keyjar[""]) == 2
+        assert len(_context.keyjar.get("sig")) == 2

@@ -127,7 +127,7 @@ class TestEndpoint(object):
                 "registration": {
                     "path": "registration",
                     "class": Registration,
-                    "kwargs": {"client_authn_method": ["none"]},
+                    "kwargs": {"client_auth_method": None},
                 },
                 "authorization": {
                     "path": "authorization",
@@ -163,16 +163,14 @@ class TestEndpoint(object):
             "session_params": SESSION_PARAMS,
         }
         server = Server(OPConfiguration(conf=conf, base_path=BASEDIR), cwd=BASEDIR)
-        server.context.cdb["client_id"] = {
-            "redirect_uris": [("https://example.com/cb", None)],
-        }
-        self.endpoint = server.get_endpoint("registration")
+        server.endpoint_context.cdb["client_id"] = {}
+        self.endpoint = server.server_get("endpoint", "registration")
 
     def test_parse(self):
         _req = self.endpoint.parse_request(CLI_REQ.to_json())
 
         assert isinstance(_req, RegistrationRequest)
-        assert set(_req.keys()).difference(set(CLI_REQ.keys())) == set()
+        assert set(_req.keys()) == set(CLI_REQ.keys())
 
     def test_process_request(self):
         _req = self.endpoint.parse_request(CLI_REQ.to_json())
@@ -213,14 +211,14 @@ class TestEndpoint(object):
         _msg["id_token_signed_response_alg"] = "XYZ256"
         _req = self.endpoint.parse_request(RegistrationRequest(**_msg).to_json())
         _resp = self.endpoint.process_request(request=_req)
-        assert "id_token_signed_response_alg" not in _resp
+        assert _resp["error"] == "invalid_request"
 
     def test_register_unsupported_set(self):
         _msg = MSG.copy()
         _msg["grant_types"] = ["authorization_code", "external"]
         _req = self.endpoint.parse_request(RegistrationRequest(**_msg).to_json())
         _resp = self.endpoint.process_request(request=_req)
-        assert _resp["response_args"]["grant_types"] == ["authorization_code"]
+        assert _resp["error"] == "invalid_request"
 
     def test_register_post_logout_redirect_uri_with_fragment(self):
         _msg = MSG.copy()
@@ -290,9 +288,18 @@ class TestEndpoint(object):
         _msg["application_type"] = "native"
         _msg["sector_identifier_uri"] = _url
 
-        _req = self.endpoint.parse_request(RegistrationRequest(**_msg).to_json())
-        _resp = self.endpoint.process_request(request=_req)
-        assert "error" in _resp
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                "GET",
+                _url,
+                body=json.dumps(["https://example.com", "https://example.org"]),
+                adding_headers={"Content-Type": "application/json"},
+                status=200,
+            )
+
+            _req = self.endpoint.parse_request(RegistrationRequest(**_msg).to_json())
+            _resp = self.endpoint.process_request(request=_req)
+            assert "error" in _resp
 
     def test_incorrect_request(self):
         _msg = MSG.copy()
@@ -339,18 +346,6 @@ class TestEndpoint(object):
         _resp = self.endpoint.process_request(request=RegistrationRequest(**_req))
         assert "error" in _resp
         assert _resp["error"] == "invalid_configuration_request"
-
-    def test_register_unsupported_response_type(self):
-        self.endpoint.upstream_get("context").provider_info["response_types_supported"] = [
-            "token",
-            "id_token",
-        ]
-        _msg = MSG.copy()
-        _msg["response_types"] = ["id_token token"]
-        _req = self.endpoint.parse_request(RegistrationRequest(**_msg).to_json())
-        _resp = self.endpoint.process_request(request=_req)
-        assert _resp["error"] == "invalid_request"
-        assert "response_type" in _resp["error_description"]
 
 
 def test_match_sp_sep():

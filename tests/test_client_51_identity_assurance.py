@@ -1,12 +1,12 @@
 import json
 import os
 
-import pytest
 from cryptojwt import JWT
 from cryptojwt.key_jar import init_key_jar
+import pytest
 
 from idpyoidc.client.defaults import DEFAULT_OIDC_SERVICES
-from idpyoidc.client.entity import Entity
+from idpyoidc.client.oauth2 import Client
 from idpyoidc.message.oidc import AuthorizationRequest
 from idpyoidc.message.oidc import AuthorizationResponse
 
@@ -28,22 +28,31 @@ class TestUserInfo(object):
             "redirect_uris": ["https://example.com/cli/authz_cb"],
             "issuer": self._iss,
             "base_url": "https://example.com/cli/",
+            "add_ons": {
+                "identity_assurance": {
+                    "function": "idpyoidc.client.oidc.add_on.identity_assurance.add_support",
+                    "kwargs": {
+                        'trust_frameworks_supported': ['ial_example_gold',],
+                        'evidence_supported': ['document']
+                    }
+                }
+            }
         }
 
         KEYS = init_key_jar(key_defs=KEYSPEC)
 
-        entity = Entity(config=client_config, services=DEFAULT_OIDC_SERVICES, keyjar=KEYS)
-        entity.get_context().issuer = "https://server.otherop.com"
-        self.service = entity.get_service("userinfo")
+        entity = Client(config=client_config, services=DEFAULT_OIDC_SERVICES, keyjar=KEYS)
+        entity.client_get("service_context").issuer = "https://server.otherop.com"
+        self.service = entity.client_get("service", "userinfo")
 
-        entity.get_context().claims.use = {
+        entity.client_get("service_context").specs.behaviour = {
             "userinfo_signed_response_alg": "RS256",
             "userinfo_encrypted_response_alg": "RSA-OAEP",
             "userinfo_encrypted_response_enc": "A256GCM",
         }
 
     def test_unpack_aggregated_response(self):
-        _cstate = self.service.upstream_get("context").cstate
+        _state_interface = self.service.client_get("service_context").state
         # Add history
         auth_request = AuthorizationRequest(
             redirect_uri="https://example.com/cli/authz_cb",
@@ -56,12 +65,12 @@ class TestUserInfo(object):
                 }
             },
         )
-        _state = _cstate.create_state(iss="issuer")
+        _state = _state_interface.create_state("issuer")
         auth_request["state"] = _state
-        _cstate.update(_state, auth_request)
+        _state_interface.store_item(auth_request, "auth_request", _state)
 
-        auth_response = AuthorizationResponse(code="access_code")
-        _cstate.update("abcde", auth_response)
+        auth_response = AuthorizationResponse(code="access_code").to_json()
+        _state_interface.store_item(auth_response, "auth_response", _state)
 
         _distributed_respone = {
             "iss": "https://server.otherop.com",
@@ -72,7 +81,7 @@ class TestUserInfo(object):
             },
         }
 
-        _jwt = JWT(key_jar=self.service.upstream_get("attribute", "keyjar"))
+        _jwt = JWT(key_jar=self.service.client_get("service_context").keyjar)
         _jws = _jwt.pack(payload=_distributed_respone)
 
         resp = {
@@ -84,8 +93,8 @@ class TestUserInfo(object):
             "_claim_sources": {"src1": {"JWT": _jws}},
         }
 
-        _resp = self.service.parse_response(json.dumps(resp), state="abcde")
-        _resp = self.service.post_parse_response(_resp, state="abcde")
+        _resp = self.service.parse_response(json.dumps(resp), state=_state)
+        # _resp = self.service.post_parse_response(_resp, state=_state)
         assert set(_resp.keys()) == {
             "sub",
             "iss",
