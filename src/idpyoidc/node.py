@@ -80,10 +80,10 @@ def make_keyjar(
                 keyjar = KeyJar()
                 keyjar.add_symmetric(client_id, _key)
                 keyjar.add_symmetric("", _key)
-        else:
-            keyjar = build_keyjar(DEFAULT_KEY_DEFS)
-            if issuer_id:
-                keyjar.import_jwks(keyjar.export_jwks(private=True), issuer_id)
+        # else:
+        #     keyjar = build_keyjar(DEFAULT_KEY_DEFS)
+        #     if issuer_id:
+        #         keyjar.import_jwks(keyjar.export_jwks(private=True), issuer_id)
 
     return keyjar
 
@@ -157,18 +157,21 @@ class Unit(ImpExp):
         return None
 
     def get_attribute(self, attr, *args):
-        try:
-            val = getattr(self, attr)
-        except AttributeError:
-            if self.upstream_get:
-                return self.upstream_get("attribute", attr)
-            else:
-                return None
-        else:
-            if val is None and self.upstream_get:
-                return self.upstream_get("attribute", attr)
-            else:
+        val = getattr(self, attr, None)
+        if val:
+            return val
+
+        cntx = getattr(self, 'context', None)
+        if cntx:
+            val = getattr(cntx, attr, None)
+            if val:
                 return val
+
+        # Go upstairs if possible
+        if self.upstream_get:
+            return self.upstream_get("attribute", attr)
+        else:
+            return val
 
     def set_attribute(self, attr, val):
         setattr(self, attr, val)

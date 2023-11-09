@@ -123,7 +123,7 @@ class NoneAuthn(ClientAuthnMethod):
         endpoint=None,  # Optional[Endpoint]
         **kwargs,
     ):
-        return {"client_id": request.get("client_id"), "token": authorization_token}
+        return {"client_id": request.get("client_id")}
 
 
 class PublicAuthn(ClientAuthnMethod):
@@ -227,12 +227,14 @@ class BearerHeader(ClientSecretBasic):
     ):
         token = authorization_token.split(" ", 1)[1]
         _context = self.upstream_get("context")
-        try:
-            client_id = get_client_id_from_token(_context, token, request)
-        except ToOld:
-            raise BearerTokenAuthenticationError("Expired token")
-        except KeyError:
-            raise BearerTokenAuthenticationError("Unknown token")
+        client_id = ""
+        if get_client_id_from_token:
+            try:
+                client_id = get_client_id_from_token(_context, token, request)
+            except ToOld:
+                raise BearerTokenAuthenticationError("Expired token")
+            except KeyError:
+                raise BearerTokenAuthenticationError("Unknown token")
         return {"token": token, "client_id": client_id}
 
 
@@ -435,10 +437,11 @@ CLIENT_AUTHN_METHOD = dict(
 TYPE_METHOD = [(JWT_BEARER, JWSAuthnMethod)]
 
 
-def valid_client_info(cinfo):
-    eta = cinfo.get("client_secret_expires_at", 0)
-    if eta != 0 and eta < utc_time_sans_frac():
-        return False
+def valid_client_secret(cinfo):
+    if "client_secret" in cinfo:
+        eta = cinfo.get("client_secret_expires_at", 0)
+        if eta != 0 and eta < utc_time_sans_frac():
+            return False
     return True
 
 
@@ -471,8 +474,10 @@ def verify_client(
         authorization_token = None
 
     auth_info = {}
+
     _context = endpoint.upstream_get("context")
     methods = _context.client_authn_methods
+
     client_id = None
     allowed_methods = getattr(endpoint, "client_authn_method")
     if not allowed_methods:
@@ -520,8 +525,8 @@ def verify_client(
         if not _cinfo:
             raise UnknownClient("Unknown Client ID")
 
-        if not valid_client_info(_cinfo):
-            logger.warning("Client registration has timed out or " "client secret is expired.")
+        if not valid_client_secret(_cinfo):
+            logger.warning("Client secret has expired.")
             raise InvalidClient("Not valid client")
 
         # Validate that the used method is allowed for this client/endpoint

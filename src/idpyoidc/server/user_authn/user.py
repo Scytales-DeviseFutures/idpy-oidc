@@ -20,9 +20,6 @@ from idpyoidc.server.exception import OnlyForTestingWarning
 from idpyoidc.time_util import utc_time_sans_frac
 from idpyoidc.util import instantiate
 
-from flask import redirect
-
-
 __author__ = "Roland Hedberg"
 
 logger = logging.getLogger(__name__)
@@ -165,20 +162,12 @@ class UserPassJinja2(UserAuthnMethod):
         db,
         template_handler,
         template="user_pass.jinja2",
-<<<<<<< HEAD
-        server_get=None,
-        verify_endpoint="",
-        **kwargs,
-    ):
-        super(UserPassJinja2, self).__init__(server_get=server_get)
-=======
         upstream_get=None,
         verify_endpoint="",
         **kwargs,
     ):
 
         super(UserPassJinja2, self).__init__(upstream_get=upstream_get)
->>>>>>> parent of 7bc7a33... Update to version in identity_assurance branch
         self.template_handler = template_handler
         self.template = template
 

@@ -1,5 +1,7 @@
 import logging
 
+from idpyoidc import metadata
+
 from idpyoidc import claims
 
 from idpyoidc.message import Message
@@ -25,12 +27,7 @@ class Token(token.Token):
     endpoint_name = "token_endpoint"
     name = "token"
     default_capabilities = None
-
-    helper_by_grant_type = {
-        "authorization_code": AccessTokenHelper,
-        "refresh_token": RefreshTokenHelper,
-        "urn:ietf:params:oauth:grant-type:token-exchange": TokenExchangeHelper,
-    }
+    endpoint_type = "oidc"
 
     _supports = {
         "token_endpoint_auth_methods_supported": [
@@ -39,8 +36,7 @@ class Token(token.Token):
             "client_secret_jwt",
             "private_key_jwt",
         ],
-        "token_endpoint_auth_signing_alg_values_supported": claims.get_signing_algs(),
-        "grant_types_supported": list(helper_by_grant_type.keys())
+        "token_endpoint_auth_signing_alg_values_supported": metadata.get_signing_algs,
     }
 
     helper_by_grant_type = {
