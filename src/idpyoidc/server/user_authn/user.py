@@ -50,9 +50,9 @@ class UserAuthnMethod(object):
     url_endpoint = "/verify"
     FAILED_AUTHN = (None, True)
 
-    def __init__(self, server_get=None, **kwargs):
+    def __init__(self, upstream_get=None, **kwargs):
         self.query_param = "upm_answer"
-        self.server_get = server_get
+        self.upstream_get = upstream_get
         self.kwargs = kwargs
 
     def __call__(self, **kwargs):
@@ -93,7 +93,7 @@ class UserAuthnMethod(object):
         raise NotImplementedError
 
     def unpack_token(self, token):
-        return verify_signed_jwt(token=token, keyjar=self.server_get("endpoint_context").keyjar)
+        return verify_signed_jwt(token=token, keyjar=self.upstream_get("context").keyjar)
 
     def done(self, areq):
         """
@@ -109,7 +109,7 @@ class UserAuthnMethod(object):
             return False
 
     def cookie_info(self, cookie: List[dict], client_id: str) -> dict:
-        _context = self.server_get("endpoint_context")
+        _context = self.upstream_get("context")
         logger.debug("Value cookies: {}".format(cookie))
 
         if cookie is None:
@@ -165,11 +165,20 @@ class UserPassJinja2(UserAuthnMethod):
         db,
         template_handler,
         template="user_pass.jinja2",
+<<<<<<< HEAD
         server_get=None,
         verify_endpoint="",
         **kwargs,
     ):
         super(UserPassJinja2, self).__init__(server_get=server_get)
+=======
+        upstream_get=None,
+        verify_endpoint="",
+        **kwargs,
+    ):
+
+        super(UserPassJinja2, self).__init__(upstream_get=upstream_get)
+>>>>>>> parent of 7bc7a33... Update to version in identity_assurance branch
         self.template_handler = template_handler
         self.template = template
 
@@ -197,12 +206,13 @@ class UserPassJinja2(UserAuthnMethod):
             ),
             OnlyForTestingWarning,
         )
-        if not self.server_get:
-            raise Exception(f"{self.__class__.__name__} doesn't have a working server_get")
-        _context = self.server_get("endpoint_context")
+        if not self.upstream_get:
+            raise Exception(f"{self.__class__.__name__} doesn't have a working upstream_get")
+        _context = self.upstream_get("context")
+        _keyjar = self.upstream_get("attribute", "keyjar")
         # Stores information need afterwards in a signed JWT that then
         # appears as a hidden input in the form
-        jws = create_signed_jwt(_context.issuer, _context.keyjar, **kwargs)
+        jws = create_signed_jwt(_context.issuer, _keyjar, **kwargs)
         _kwargs = self.kwargs.copy()
         for attr in ["policy", "tos", "logo"]:
             _uri = "{}_uri".format(attr)
@@ -224,9 +234,31 @@ class UserPassJinja2(UserAuthnMethod):
             raise FailedAuthentication()
 
 
+class UserPass(UserAuthnMethod):
+    def __init__(
+        self,
+        db_conf,
+        upstream_get=None,
+        **kwargs,
+    ):
+
+        super(UserPass, self).__init__(upstream_get=upstream_get)
+        self.user_db = instantiate(db_conf["class"], **db_conf["kwargs"])
+
+    def __call__(self, **kwargs):
+        pass
+
+    def verify(self, *args, **kwargs):
+        username = kwargs["username"]
+        if username in self.user_db and self.user_db[username] == kwargs["password"]:
+            return username
+        else:
+            raise FailedAuthentication()
+
+
 class BasicAuthn(UserAuthnMethod):
-    def __init__(self, pwd, ttl=5, server_get=None):
-        UserAuthnMethod.__init__(self, server_get=server_get)
+    def __init__(self, pwd, ttl=5, upstream_get=None):
+        UserAuthnMethod.__init__(self, upstream_get=upstream_get)
         self.passwd = pwd
         self.ttl = ttl
 
@@ -255,10 +287,11 @@ class BasicAuthn(UserAuthnMethod):
 
 
 class SymKeyAuthn(UserAuthnMethod):
+
     # user authentication using a token
 
-    def __init__(self, ttl, symkey, server_get=None):
-        UserAuthnMethod.__init__(self, server_get=server_get)
+    def __init__(self, ttl, symkey, upstream_get=None):
+        UserAuthnMethod.__init__(self, upstream_get=upstream_get)
 
         if symkey is not None and symkey == "":
             msg = "SymKeyAuthn.symkey cannot be an empty value"
@@ -289,10 +322,11 @@ class SymKeyAuthn(UserAuthnMethod):
 
 
 class NoAuthn(UserAuthnMethod):
+
     # Just for testing allows anyone it without authentication
 
-    def __init__(self, user, server_get=None):
-        UserAuthnMethod.__init__(self, server_get=server_get)
+    def __init__(self, user, upstream_get=None):
+        UserAuthnMethod.__init__(self, upstream_get=upstream_get)
         self.user = user
         self.fail = None
 
@@ -312,145 +346,6 @@ class NoAuthn(UserAuthnMethod):
             res.update(self.cookie_info(cookie, client_id))
 
         return res, utc_time_sans_frac()
-
-
-class PidIssuerAuth(object):
-    url_endpoint = "/verify"
-    FAILED_AUTHN = (None, True)
-
-    def __init__(self, upstream_get=None, **kwargs):
-        print("\nReached Init\n")
-        self.query_param = "upm_answer"
-        self.upstream_get = upstream_get
-        self.kwargs = kwargs
-
-    def __call__(self, **kwargs):
-        """
-        Display user interaction.
-
-        :param args:
-        :param kwargs:
-        :return:
-        """
-        print("\nReached Call\n")
-        print(kwargs)
-
-        if not self.upstream_get:
-            raise Exception(f"{self.__class__.__name__} doesn't have a working upstream_get")
-        _context = self.upstream_get("context")
-        _keyjar = self.upstream_get("attribute", "keyjar")
-        # Stores information need afterwards in a signed JWT that then
-        # appears as a hidden input in the form
-        jws = create_signed_jwt(_context.issuer, _keyjar, **kwargs)
-        _kwargs = self.kwargs.copy()
-        for attr in ["policy", "tos", "logo"]:
-            _uri = "{}_uri".format(attr)
-            try:
-                _kwargs[_uri] = kwargs[_uri]
-            except KeyError:
-                pass
-            else:
-                _label = "{}_label".format(attr)
-                _kwargs[_label] = LABELS[_uri]
-
-        # print(url_for("pid"))
-        countries_name = {
-            "CW": "eIDAS CW",
-            "FC": "Form Country",
-            "PT": "Portugal",
-            "EE": "Estonia",
-            "CZ": "Czechia",
-        }
-
-        # return render_template(
-        #    "route_pid/pid-countries.html", countries=countries_name, token=jws
-        # )
-
-        return redirect(url_get("https://127.0.0.1:4430/pid/", {"token": jws}))
-
-    def authenticated_as(self, client_id, cookie=None, **kwargs):
-        print("\nReached Authenticated as\n")
-        if cookie is None:
-            return None, 0
-        else:
-            _info = self.cookie_info(cookie, client_id)
-            if _info:
-                logger.debug("authenticated_as: cookie info={}".format(_info))
-                if "max_age" in kwargs and kwargs["max_age"] != 0:
-                    _max_age = kwargs["max_age"]
-                    _now = utc_time_sans_frac()
-                    if _now > _info["timestamp"] + _max_age:
-                        logger.debug(
-                            "Too old by {} seconds".format(_now - (_info["timestamp"] + _max_age))
-                        )
-                        return None, 0
-            else:
-                logger.info("Failed to find session based on cookie")
-
-            return _info, utc_time_sans_frac()
-
-    def verify(self, *args, **kwargs):
-        print("\nReached Verify\n")
-        """
-        Callback to verify user input
-        :return: username of the authenticated user
-        """
-        username = kwargs["username"]
-        print("\nUsername: ", username)
-        return username
-
-    def cookie_info(self, cookie: List[dict], client_id: str) -> dict:
-        _context = self.upstream_get("context")
-        logger.debug("Value cookies: {}".format(cookie))
-
-        if cookie is None:
-            pass
-        else:
-            for val in cookie:
-                _info = json.loads(val["value"])
-                _info["timestamp"] = int(val["timestamp"])
-
-                # verify session ID
-                try:
-                    _context.session_manager[_info["sid"]]
-                except (
-                    KeyError,
-                    ValueError,
-                    InconsistentDatabase,
-                    NoSuchClientSession,
-                    NoSuchGrant,
-                ) as err:
-                    logger.info(f"Verifying session ID fail due to {err}")
-                    return {}
-
-                session_id = _context.session_manager.decrypt_session_id(_info["sid"])
-                logger.debug("cookie_info: session id={}".format(session_id))
-
-                if session_id[1] != client_id:
-                    continue
-                else:
-                    _info["uid"] = session_id[0]
-                    _info["grant_id"] = session_id[2]
-                    return _info
-        return {}
-
-    def unpack_token(self, token):
-        return verify_signed_jwt(token=token, keyjar=self.upstream_get("context").keyjar)
-
-
-import urllib.parse
-
-
-def url_get(url_path: str, args: dict):
-    """Returns the URL for a HTTP GET query
-
-    Keyword arguments:
-    + url_path -- URL without the GET parameters
-    + args -- dictionary of parameters (key: value)
-
-    Return: URL for a HTTP GET query
-    """
-    return url_path + "?" + urllib.parse.urlencode(args)
 
 
 def factory(cls, **kwargs):

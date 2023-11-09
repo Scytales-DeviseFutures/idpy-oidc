@@ -4,7 +4,6 @@ import logging
 import os
 import secrets
 import sys
-from typing import Optional
 from typing import Union
 from urllib.parse import parse_qs
 from urllib.parse import quote_plus
@@ -12,8 +11,8 @@ from urllib.parse import unquote_plus
 from urllib.parse import urlsplit
 from urllib.parse import urlunsplit
 
-from cryptojwt.utils import importer
 import yaml
+from cryptojwt.utils import importer
 
 logger = logging.getLogger(__name__)
 
@@ -152,43 +151,3 @@ def qualified_name(cls):
         return cls.__module__ + "." + cls.name
     except AttributeError:
         return cls.__module__ + "." + cls.__name__
-
-
-def claims_match(value: Union[str, int], claimspec: Optional[dict]) -> bool:
-    """
-    Implements matching according to section 5.5.1 of
-    http://openid.net/specs/openid-connect-core-1_0.html
-    The lack of value is not checked here.
-    Also the text doesn't prohibit having both 'value' and 'values'.
-
-    :param value: single value
-    :param claimspec: None or dictionary with 'essential', 'value' or 'values'
-        as key
-    :return: Boolean
-    """
-    if value is None:
-        return False
-
-    if claimspec is None:  # match anything
-        return True
-
-    matched = False
-    for key, val in claimspec.items():
-        if key == "value":
-            if value == val:
-                matched = True
-        elif key == "values":
-            if value in val:
-                matched = True
-        elif key == "essential":
-            # Whether it's essential or not doesn't change anything here
-            continue
-
-        if matched:
-            break
-
-    if matched is False:
-        if list(claimspec.keys()) == ["essential"]:
-            return True
-
-    return matched

@@ -6,6 +6,7 @@ from idpyoidc.message import oauth2
 from idpyoidc.server.endpoint import Endpoint
 from idpyoidc.server.token.exception import UnknownToken
 from idpyoidc.server.token.exception import WrongTokenClass
+from idpyoidc.server.exception import ToOld
 
 LOGGER = logging.getLogger(__name__)
 
@@ -19,7 +20,7 @@ class Introspection(Endpoint):
     response_format = "json"
     endpoint_name = "introspection_endpoint"
     name = "introspection"
-    default_capabilities = {
+    _supports = {
         "client_authn_method": [
             "client_secret_basic",
             "client_secret_post",
@@ -28,9 +29,10 @@ class Introspection(Endpoint):
         ]
     }
 
-    def __init__(self, server_get, **kwargs):
-        Endpoint.__init__(self, server_get, **kwargs)
+    def __init__(self, upstream_get, **kwargs):
+        Endpoint.__init__(self, upstream_get, **kwargs)
         self.offset = kwargs.get("offset", 0)
+        self.enforce_aud_restriction = kwargs.get("enforce_audience_restriction", True)
 
     def _introspect(self, token, client_id, grant):
         # Make sure that the token is an access_token or a refresh_token
@@ -51,7 +53,7 @@ class Introspection(Endpoint):
         if not aud:
             aud = grant.resources
 
-        _context = self.server_get("endpoint_context")
+        _context = self.upstream_get("context")
         ret = {
             "active": True,
             "scope": " ".join(scope),
@@ -97,17 +99,33 @@ class Introspection(Endpoint):
 
         request_token = _introspect_request["token"]
         _resp = self.response_cls(active=False)
-        _context = self.server_get("endpoint_context")
+        _context = self.upstream_get("context")
 
         try:
             _session_info = _context.session_manager.get_session_info_by_token(
                 request_token, grant=True
             )
-        except (UnknownToken, WrongTokenClass):
+        except (UnknownToken, WrongTokenClass, ToOld):
             return {"response_args": _resp}
 
         grant = _session_info["grant"]
         _token = grant.get_token(request_token)
+
+        aud = _token.resources
+        if not aud:
+            aud = grant.resources
+
+        client_id = request["client_id"]
+        try:
+            _cinfo = _context.cdb[client_id]
+            enforce_aud_restriction = _cinfo.get(
+                "enforce_audience_restriction", self.enforce_aud_restriction
+            )
+        except:
+            enforce_aud_restriction = self.enforce_aud_restriction
+        if enforce_aud_restriction:
+            if request["client_id"] not in aud:
+                return {"response_args": _resp}
 
         _info = self._introspect(_token, _session_info["client_id"], _session_info["grant"])
         if _info is None:
@@ -124,7 +142,7 @@ class Introspection(Endpoint):
         _resp.weed()
 
         _claims_restriction = _context.claims_interface.get_claims(
-            _session_info["session_id"], scopes=_token.scope, claims_release_point="introspection"
+            _session_info["branch_id"], scopes=_token.scope, claims_release_point="introspection"
         )
         if _claims_restriction:
             user_info = _context.claims_interface.get_user_claims(

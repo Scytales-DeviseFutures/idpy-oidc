@@ -9,11 +9,14 @@ from cryptojwt.exception import MissingValue
 from cryptojwt.jwt import JWT
 from cryptojwt.jwt import utc_time_sans_frac
 
+from idpyoidc import claims
+from idpyoidc.util import importer
 from idpyoidc.message import Message
 from idpyoidc.message import oidc
 from idpyoidc.message.oauth2 import ResponseMessage
 from idpyoidc.server.endpoint import Endpoint
 from idpyoidc.server.exception import ClientAuthenticationError
+from idpyoidc.exception import ImproperlyConfigured
 from idpyoidc.server.util import OAUTH2_NOCACHE_HEADERS
 
 logger = logging.getLogger(__name__)
@@ -23,34 +26,33 @@ class UserInfo(Endpoint):
     request_cls = Message
     response_cls = oidc.OpenIDSchema
     request_format = "json"
-    response_format = "json"
+    response_format = "jose"
     response_placement = "body"
     endpoint_name = "userinfo_endpoint"
     name = "userinfo"
-    provider_info_attributes = {
+    _supports = {
         "claim_types_supported": ["normal", "aggregated", "distributed"],
-        "userinfo_signing_alg_values_supported": None,
-        "userinfo_encryption_alg_values_supported": None,
-        "userinfo_encryption_enc_values_supported": None,
-    }
-    default_capabilities = {
-        "client_authn_method": ["bearer_header", "bearer_body"],
+        "encrypt_userinfo_supported": True,
+        "userinfo_signing_alg_values_supported": claims.get_signing_algs,
+        "userinfo_encryption_alg_values_supported": claims.get_encryption_algs,
+        "userinfo_encryption_enc_values_supported": claims.get_encryption_encs,
     }
 
-    def __init__(self, server_get: Callable, add_claims_by_scope: Optional[bool] = True, **kwargs):
+    def __init__(
+        self, upstream_get: Callable, add_claims_by_scope: Optional[bool] = True, **kwargs
+    ):
         Endpoint.__init__(
             self,
-            server_get,
+            upstream_get,
             add_claims_by_scope=add_claims_by_scope,
             **kwargs,
         )
         # Add the issuer ID as an allowed JWT target
         self.allowed_targets.append("")
+        self.config = kwargs or {}
 
-    def get_client_id_from_token(self, endpoint_context, token, request=None):
-        _info = endpoint_context.session_manager.get_session_info_by_token(
-            token, handler_key="access_token"
-        )
+    def get_client_id_from_token(self, context, token, request=None):
+        _info = context.session_manager.get_session_info_by_token(token, handler_key="access_token")
         return _info["client_id"]
 
     def do_response(
@@ -58,13 +60,13 @@ class UserInfo(Endpoint):
         response_args: Optional[Union[Message, dict]] = None,
         request: Optional[Union[Message, dict]] = None,
         client_id: Optional[str] = "",
-        **kwargs
+        **kwargs,
     ) -> dict:
 
         if "error" in kwargs and kwargs["error"]:
             return Endpoint.do_response(self, response_args, request, **kwargs)
 
-        _context = self.server_get("endpoint_context")
+        _context = self.upstream_get("context")
         if not client_id:
             raise MissingValue("client_id")
 
@@ -89,7 +91,7 @@ class UserInfo(Endpoint):
 
         if encrypt or sign:
             _jwt = JWT(
-                _context.keyjar,
+                self.upstream_get("attribute", "keyjar"),
                 iss=_context.issuer,
                 sign=sign,
                 sign_alg=sign_alg,
@@ -113,7 +115,7 @@ class UserInfo(Endpoint):
         return {"response": resp, "http_headers": http_headers}
 
     def process_request(self, request=None, **kwargs):
-        _mngr = self.server_get("endpoint_context").session_manager
+        _mngr = self.upstream_get("context").session_manager
         try:
             _session_info = _mngr.get_session_info_by_token(
                 request["access_token"], grant=True, handler_key="access_token"
@@ -131,38 +133,22 @@ class UserInfo(Endpoint):
         if token.is_active() is False:
             return self.error_cls(error="invalid_token", error_description="Invalid Token")
 
-        allowed = True
-        _auth_event = _grant.authentication_event
-        # if the authenticate is still active or offline_access is granted.
-        if not _auth_event["valid_until"] >= utc_time_sans_frac():
-            logger.debug(
-                "authentication not valid: {} > {}".format(
-                    datetime.fromtimestamp(_auth_event["valid_until"]),
-                    datetime.fromtimestamp(utc_time_sans_frac()),
-                )
-            )
-            allowed = False
+        _cntxt = self.upstream_get("context")
+        _claims_restriction = _cntxt.claims_interface.get_claims(
+            _session_info["branch_id"], scopes=token.scope, claims_release_point="userinfo"
+        )
+        info = _cntxt.claims_interface.get_user_claims(
+            _session_info["user_id"], claims_restriction=_claims_restriction
+        )
+        info["sub"] = _grant.sub
+        if _grant.add_acr_value("userinfo"):
+            info["acr"] = _grant.authentication_event["authn_info"]
 
-            # This has to be made more fine grained.
-            # if "offline_access" in session["authn_req"]["scope"]:
-            #     pass
+        if "userinfo" in _cntxt.cdb[request["client_id"]]:
+            self.config["policy"] = _cntxt.cdb[request["client_id"]]["userinfo"]["policy"]
 
-        if allowed:
-            _cntxt = self.server_get("endpoint_context")
-            _claims_restriction = _cntxt.claims_interface.get_claims(
-                _session_info["session_id"], scopes=token.scope, claims_release_point="userinfo"
-            )
-            info = _cntxt.claims_interface.get_user_claims(
-                _session_info["user_id"], claims_restriction=_claims_restriction
-            )
-            info["sub"] = _grant.sub
-            if _grant.add_acr_value("userinfo"):
-                info["acr"] = _grant.authentication_event["authn_info"]
-        else:
-            info = {
-                "error": "invalid_request",
-                "error_description": "Access not granted",
-            }
+        if "policy" in self.config:
+            info = self._enforce_policy(request, info, token, self.config)
 
         return {"response_args": info, "client_id": _session_info["client_id"]}
 
@@ -181,8 +167,8 @@ class UserInfo(Endpoint):
         # Verify that the client is allowed to do this
         try:
             auth_info = self.client_authentication(request, http_info, **kwargs)
-        except ClientAuthenticationError as e:
-            return self.error_cls(error="invalid_token", error_description=e.args[0])
+        except ClientAuthenticationError:
+            return self.error_cls(error="invalid_token", error_description="Invalid token")
 
         if isinstance(auth_info, ResponseMessage):
             return auth_info
@@ -190,4 +176,34 @@ class UserInfo(Endpoint):
             request["client_id"] = auth_info["client_id"]
             request["access_token"] = auth_info["token"]
 
-        return request
+        # Do any endpoint specific parsing
+        return self.do_post_parse_request(
+            request=request,
+            client_id=auth_info["client_id"],
+            http_info=http_info,
+            auth_info=auth_info,
+            **kwargs,
+        )
+
+    def _enforce_policy(self, request, response_info, token, config):
+        policy = config["policy"]
+        callable = policy["function"]
+        kwargs = policy.get("kwargs", {})
+
+        if isinstance(callable, str):
+            try:
+                fn = importer(callable)
+            except Exception:
+                raise ImproperlyConfigured(f"Error importing {callable} policy callable")
+        else:
+            fn = callable
+
+        try:
+            return fn(request, token, response_info, **kwargs)
+        except Exception as e:
+            logger.error(f"Error while executing the {fn} policy callable: {e}")
+            return self.error_cls(error="server_error", error_description="Internal server error")
+
+
+def validate_userinfo_policy(request, token, response_info, **kwargs):
+    return response_info

@@ -62,7 +62,7 @@ CAPABILITIES = {
     "claim_types_supported": ["normal", "aggregated", "distributed"],
     "claims_parameter_supported": True,
     "request_parameter_supported": True,
-    "request_uri_parameter_supported": True,
+    # "request_uri_parameter_supported": True,
 }
 
 AUTH_REQ = AuthorizationRequest(
@@ -195,9 +195,9 @@ class TestEndpoint(object):
             },
             "session_params": {"encrypter": SESSION_PARAMS},
         }
-        server = Server(conf, keyjar=KEYJAR)
-        self.endpoint_context = server.endpoint_context
-        self.endpoint_context.cdb["client_1"] = {
+        self.server = Server(conf, keyjar=KEYJAR)
+        self.context = self.server.context
+        self.context.cdb["client_1"] = {
             "client_secret": "hemligt",
             "redirect_uris": [("https://example.com/cb", None)],
             "client_salt": "salted",
@@ -207,10 +207,11 @@ class TestEndpoint(object):
                 "always": {},
                 "by_scope": {},
             },
+            "allowed_scopes": ["openid", "profile", "email", "address", "phone", "offline_access"],
         }
-        self.session_manager = self.endpoint_context.session_manager
+        self.session_manager = self.context.session_manager
         self.user_id = "diana"
-        self.endpoint = server.server_get("endpoint", "session")
+        self.endpoint = self.server.get_endpoint("session")
 
     def _create_session(self, auth_req, sub_type="public", sector_identifier=""):
         if sector_identifier:
@@ -228,7 +229,7 @@ class TestEndpoint(object):
         # Constructing an authorization code is now done
         return grant.mint_token(
             session_id=session_id,
-            endpoint_context=self.endpoint_context,
+            context=self.context,
             token_class=token_class,
             token_handler=self.session_manager.token_handler.handler[token_class],
             expires_at=utc_time_sans_frac() + 300,  # 5 minutes from now
@@ -239,14 +240,14 @@ class TestEndpoint(object):
     def test_parse(self):
         session_id = self._create_session(AUTH_REQ)
         # apply consent
-        grant = self.endpoint_context.authz(session_id=session_id, request=AUTH_REQ)
+        grant = self.context.authz(session_id=session_id, request=AUTH_REQ)
         # grant = self.session_manager[session_id]
         code = self._mint_token("authorization_code", grant, session_id)
         access_token = self._mint_token(
             "access_token", grant, session_id, code, resources=[AUTH_REQ["client_id"]]
         )
 
-        _verifier = JWT(self.endpoint_context.keyjar)
+        _verifier = JWT(self.server.keyjar)
         _info = _verifier.unpack(access_token.value)
 
         assert _info["token_class"] == "access_token"
@@ -256,7 +257,7 @@ class TestEndpoint(object):
     def test_info(self):
         session_id = self._create_session(AUTH_REQ)
         # apply consent
-        grant = self.endpoint_context.authz(session_id=session_id, request=AUTH_REQ)
+        grant = self.context.authz(session_id=session_id, request=AUTH_REQ)
         #
         code = self._mint_token("authorization_code", grant, session_id)
         access_token = self._mint_token("access_token", grant, session_id, code)
@@ -268,16 +269,14 @@ class TestEndpoint(object):
     @pytest.mark.parametrize("enable_claims_per_client", [True, False])
     def test_enable_claims_per_client(self, enable_claims_per_client):
         # Set up configuration
-        self.endpoint_context.cdb["client_1"]["add_claims"]["always"]["access_token"] = {
-            "address": None
-        }
-        self.endpoint_context.session_manager.token_handler.handler["access_token"].kwargs[
+        self.context.cdb["client_1"]["add_claims"]["always"]["access_token"] = {"address": None}
+        self.context.session_manager.token_handler.handler["access_token"].kwargs[
             "enable_claims_per_client"
         ] = enable_claims_per_client
 
         session_id = self._create_session(AUTH_REQ)
         # apply consent
-        grant = self.endpoint_context.authz(session_id=session_id, request=AUTH_REQ)
+        grant = self.context.authz(session_id=session_id, request=AUTH_REQ)
         #
         code = self._mint_token("authorization_code", grant, session_id)
         access_token = self._mint_token("access_token", grant, session_id, code)
@@ -398,9 +397,9 @@ class TestEndpointWebID(object):
             "scopes_to_claims": _scope2claims,
             "session_params": SESSION_PARAMS,
         }
-        server = Server(conf, keyjar=KEYJAR)
-        self.endpoint_context = server.endpoint_context
-        self.endpoint_context.cdb["client_1"] = {
+        self.server = Server(conf, keyjar=KEYJAR)
+        self.context = self.server.context
+        self.context.cdb["client_1"] = {
             "client_secret": "hemligt",
             "redirect_uris": [("https://example.com/cb", None)],
             "client_salt": "salted",
@@ -410,10 +409,19 @@ class TestEndpointWebID(object):
                 "always": {},
                 "by_scope": {},
             },
+            "allowed_scopes": [
+                "openid",
+                "profile",
+                "email",
+                "address",
+                "phone",
+                "offline_access",
+                "webid",
+            ],
         }
-        self.session_manager = self.endpoint_context.session_manager
+        self.session_manager = self.context.session_manager
         self.user_id = "diana"
-        self.endpoint = server.server_get("endpoint", "session")
+        self.endpoint = self.server.get_endpoint("session")
 
     def _create_session(self, auth_req, sub_type="public", sector_identifier=""):
         if sector_identifier:
@@ -431,7 +439,7 @@ class TestEndpointWebID(object):
         # Constructing an authorization code is now done
         return grant.mint_token(
             session_id=session_id,
-            endpoint_context=self.endpoint_context,
+            context=self.context,
             token_class=token_class,
             token_handler=self.session_manager.token_handler.handler[token_class],
             expires_at=utc_time_sans_frac() + 300,  # 5 minutes from now
@@ -450,14 +458,14 @@ class TestEndpointWebID(object):
 
         session_id = self._create_session(_auth_req)
         # apply consent
-        grant = self.endpoint_context.authz(session_id=session_id, request=_auth_req)
+        grant = self.context.authz(session_id=session_id, request=_auth_req)
         # grant = self.session_manager[session_id]
         code = self._mint_token("authorization_code", grant, session_id)
         access_token = self._mint_token(
             "access_token", grant, session_id, code, resources=[_auth_req["client_id"]]
         )
 
-        _verifier = JWT(self.endpoint_context.keyjar)
+        _verifier = JWT(self.server.keyjar)
         _info = _verifier.unpack(access_token.value)
 
         assert _info["token_class"] == "access_token"
@@ -476,7 +484,7 @@ class TestEndpointWebID(object):
 
         session_id = self._create_session(_auth_req)
         # apply consent
-        grant = self.endpoint_context.authz(session_id=session_id, request=_auth_req)
+        grant = self.context.authz(session_id=session_id, request=_auth_req)
         # grant = self.session_manager[session_id]
         code = self._mint_token("authorization_code", grant, session_id)
         access_token = self._mint_token(
@@ -488,7 +496,7 @@ class TestEndpointWebID(object):
             aud=["https://audience.example.com"],
         )
 
-        _verifier = JWT(self.endpoint_context.keyjar)
+        _verifier = JWT(self.server.keyjar)
         _info = _verifier.unpack(access_token.value)
 
         assert _info["token_class"] == "access_token"
@@ -507,7 +515,7 @@ class TestEndpointWebID(object):
 
         session_id = self._create_session(_auth_req)
         # apply consent
-        grant = self.endpoint_context.authz(session_id=session_id, request=_auth_req)
+        grant = self.context.authz(session_id=session_id, request=_auth_req)
         # grant = self.session_manager[session_id]
         code = self._mint_token("authorization_code", grant, session_id)
         access_token = self._mint_token(
@@ -515,17 +523,17 @@ class TestEndpointWebID(object):
             grant,
             session_id,
             code,
-            scope=["openid"],
+            scope=["openid", "foobar"],
             aud=["https://audience.example.com"],
         )
 
-        _verifier = JWT(self.endpoint_context.keyjar)
+        _verifier = JWT(self.server.keyjar)
         _info = _verifier.unpack(access_token.value)
 
         assert _info["token_class"] == "access_token"
         # assert _info["eduperson_scoped_affiliation"] == ["staff@example.org"]
         assert set(_info["aud"]) == {"https://audience.example.com"}
-        assert _info["scope"] == ["openid"]
+        assert _info["scope"] == "openid foobar"
 
     def test_mint_with_extra(self):
         _auth_req = AuthorizationRequest(
@@ -538,7 +546,7 @@ class TestEndpointWebID(object):
 
         session_id = self._create_session(_auth_req)
         # apply consent
-        grant = self.endpoint_context.authz(session_id=session_id, request=_auth_req)
+        grant = self.context.authz(session_id=session_id, request=_auth_req)
         # grant = self.session_manager[session_id]
         code = self._mint_token("authorization_code", grant, session_id)
         access_token = self._mint_token(
@@ -549,7 +557,7 @@ class TestEndpointWebID(object):
             claims=["name", "family_name"],
         )
 
-        _verifier = JWT(self.endpoint_context.keyjar)
+        _verifier = JWT(self.server.keyjar)
         _info = _verifier.unpack(access_token.value)
         assert "name" in _info
         assert "family_name" in _info
@@ -559,6 +567,6 @@ class TestEndpointWebID(object):
         _handler = master_handler["access_token"]
         assert _handler
         _jwt = _handler(aud="https://example.org")
-        _verifier = JWT(self.endpoint_context.keyjar)
+        _verifier = JWT(self.server.keyjar)
         _info = _verifier.unpack(_jwt)
         assert _info

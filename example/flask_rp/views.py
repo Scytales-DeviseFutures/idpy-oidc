@@ -100,7 +100,7 @@ def finalize(op_identifier, request_args):
         logger.error(rp.response[0].decode())
         return rp.response[0], rp.status_code
 
-    _context = rp.client_get("service_context")
+    _context = rp.get_context()
     session['client_id'] = _context.get('client_id')
 
     session['state'] = request_args.get('state')
@@ -123,7 +123,7 @@ def finalize(op_identifier, request_args):
         raise excp
 
     if 'userinfo' in res:
-        _context = rp.client_get("service_context")
+        _context = rp.get_context()
         endpoints = {}
         for k, v in _context.provider_info.items():
             if k.endswith('_endpoint'):
@@ -157,9 +157,8 @@ def finalize(op_identifier, request_args):
 def get_op_identifier_by_cb_uri(url: str):
     uri = splitquery(url)[0]
     for k, v in current_app.rph.issuer2rp.items():
-        _cntx = v.get_service_context()
         for endpoint in v.get_callback_uris():
-            _endps = _cntx.get_metadata(endpoint)
+            _endps = v.get_metadata_value(endpoint)
             if _endps is None:
                 continue
             elif isinstance(_endps,str):
@@ -187,7 +186,7 @@ def repost_fragment():
     return finalize(op_identifier, args)
 
 
-@oidc_rp_views.route('/authz_im_cb')
+@oidc_rp_views.route('/authz_tok_cb')
 def authz_im_cb(op_identifier='', **kwargs):
     logger.debug('implicit_hybrid_flow kwargs: {}'.format(kwargs))
     return render_template('repost_fragment.html', op_identifier=op_identifier)
@@ -198,7 +197,7 @@ def session_iframe():  # session management
     logger.debug('session_iframe request_args: {}'.format(request.args))
 
     _rp = get_rp(session['op_identifier'])
-    _context = _rp.client_get("service_context")
+    _context = _rp.get_context()
     session_change_url = "{}/session_change".format(_context.base_url)
 
     _issuer = current_app.rph.hash2issuer[session['op_identifier']]
@@ -238,16 +237,17 @@ def session_change():
 def session_logout(op_identifier):
     _rp = get_rp(op_identifier)
     logger.debug('post_logout')
-    return "Post logout from {}".format(_rp.client_get("service_context").issuer)
+    return "Post logout from {}".format(_rp.get_context().issuer)
 
 
 # RP initiated logout
 @oidc_rp_views.route('/logout')
 def logout():
     logger.debug('logout')
-    _info = current_app.rph.logout(state=session['state'])
-    logger.debug('logout redirect to "{}"'.format(_info['url']))
-    return redirect(_info['url'], 303)
+    _request_info = current_app.rph.logout(state=session['state'])
+    _url = _request_info["url"]
+    logger.debug(f'logout redirect to "{_url}"')
+    return redirect(_url, 303)
 
 
 @oidc_rp_views.route('/bc_logout/<op_identifier>', methods=['GET', 'POST'])
@@ -268,7 +268,7 @@ def frontchannel_logout(op_identifier):
     _rp = get_rp(op_identifier)
     sid = request.args['sid']
     _iss = request.args['iss']
-    if _iss != _rp.client_get("service_context").get('issuer'):
+    if _iss != _rp.get_context().get('issuer'):
         return 'Bad request', 400
     _state = _rp.session_interface.get_state_by_sid(sid)
     _rp.session_interface.remove_state(_state)
