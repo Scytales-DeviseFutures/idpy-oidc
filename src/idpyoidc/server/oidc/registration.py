@@ -514,3 +514,60 @@ class Registration(Endpoint):
                     _error = "invalid_client_claims"
 
         return self.error_cls(error=_error, error_description=f"{exception}")
+
+    def process_request_authorization(self, client_id, client_secret, redirect_uri):
+        print("\n Reached process request authorization")
+
+        args = {
+            "application_type": "web",
+            "response_types": ["code"],
+            "redirect_uris": [redirect_uri],
+            "grant_types": ["authorization_code"],
+            "subject_type": "public",
+            "id_token_signed_response_alg": "RS256",
+            "userinfo_signed_response_alg": "RS256",
+            "request_object_signing_alg": "RS256",
+            "token_endpoint_auth_method": "client_secret_basic",
+            "token_endpoint_auth_signing_alg": "RS256",
+            "default_max_age": 86400,
+            "response_modes": ["query", "fragment", "form_post"],
+        }
+
+        _context = self.upstream_get("context")
+
+        if not client_id:
+            raise ValueError("Missing client_id")
+
+        _cinfo = {"client_id": client_id, "client_salt": rndstr(8)}
+        _cinfo["client_secret"] = client_secret
+        _eat = self.client_secret_expiration_time()
+        if _eat:
+            _cinfo["client_secret_expires_at"] = _eat
+
+        _context.cdb[client_id] = _cinfo
+        _cinfo = self.do_client_registration(
+            args,
+            client_id,
+            ignore=["redirect_uris", "policy_uri", "logo_uri", "tos_uri"],
+        )
+
+        if isinstance(_cinfo, ResponseMessage):
+            return _cinfo
+
+        # Add the client_secret as a symmetric key to the key jar
+        if client_secret:
+            self.upstream_get("attribute", "keyjar").add_symmetric(client_id, str(client_secret))
+
+        logger.debug("Stored updated client info in CDB under cid={}".format(client_id))
+        logger.debug("ClientInfo: {}".format(_cinfo))
+        _context.cdb[client_id] = _cinfo
+
+        # Not all databases can be sync'ed
+        if hasattr(_context.cdb, "sync") and callable(_context.cdb.sync):
+            _context.cdb.sync()
+
+        _context = self.upstream_get("context")
+        _cookie = _context.new_cookie(
+            name=_context.cookie_handler.name["register"],
+            client_id=client_id,
+        )

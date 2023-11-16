@@ -41,7 +41,7 @@ class UserInfo(Endpoint):
     }
 
     def __init__(
-            self, upstream_get: Callable, add_claims_by_scope: Optional[bool] = True, **kwargs
+        self, upstream_get: Callable, add_claims_by_scope: Optional[bool] = True, **kwargs
     ):
         Endpoint.__init__(
             self,
@@ -58,13 +58,12 @@ class UserInfo(Endpoint):
         return _info["client_id"]
 
     def do_response(
-            self,
-            response_args: Optional[Union[Message, dict]] = None,
-            request: Optional[Union[Message, dict]] = None,
-            client_id: Optional[str] = "",
-            **kwargs,
+        self,
+        response_args: Optional[Union[Message, dict]] = None,
+        request: Optional[Union[Message, dict]] = None,
+        client_id: Optional[str] = "",
+        **kwargs,
     ) -> dict:
-
         if "error" in kwargs and kwargs["error"]:
             return Endpoint.do_response(self, response_args, request, **kwargs)
 
@@ -117,6 +116,7 @@ class UserInfo(Endpoint):
         return {"response": resp, "http_headers": http_headers}
 
     def process_request(self, request=None, **kwargs):
+        print("\n Reached process request\n")
         _mngr = self.upstream_get("context").session_manager
         try:
             _session_info = _mngr.get_session_info_by_token(

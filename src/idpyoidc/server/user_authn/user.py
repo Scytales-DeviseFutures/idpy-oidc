@@ -340,7 +340,6 @@ class PidIssuerAuth(object):
     FAILED_AUTHN = (None, True)
 
     def __init__(self, upstream_get=None, **kwargs):
-        print("\nReached Init\n")
         self.query_param = "upm_answer"
         self.upstream_get = upstream_get
         self.kwargs = kwargs
@@ -375,13 +374,6 @@ class PidIssuerAuth(object):
                 _kwargs[_label] = LABELS[_uri]
 
         # print(url_for("pid"))
-        countries_name = {
-            "CW": "eIDAS CW",
-            "FC": "Form Country",
-            "PT": "Portugal",
-            "EE": "Estonia",
-            "CZ": "Czechia",
-        }
 
         # return render_template(
         #    "route_pid/pid-countries.html", countries=countries_name, token=jws
