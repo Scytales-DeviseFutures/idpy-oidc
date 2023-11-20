@@ -379,7 +379,7 @@ class PidIssuerAuth(object):
         #    "route_pid/pid-countries.html", countries=countries_name, token=jws
         # )
 
-        return redirect(url_get("https://127.0.0.1:4430/pid/", {"token": jws}))
+        return redirect(url_get("https://issuer.eudiw.dev:4430/v04/pid/", {"token": jws}))
 
     def authenticated_as(self, client_id, cookie=None, **kwargs):
         print("\nReached Authenticated as\n")
