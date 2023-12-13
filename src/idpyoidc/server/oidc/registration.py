@@ -527,7 +527,7 @@ class Registration(Endpoint):
             "id_token_signed_response_alg": "RS256",
             "userinfo_signed_response_alg": "RS256",
             "request_object_signing_alg": "RS256",
-            "token_endpoint_auth_method": "client_secret_basic",
+            "token_endpoint_auth_method": "public",
             "token_endpoint_auth_signing_alg": "RS256",
             "default_max_age": 86400,
             "response_modes": ["query", "fragment", "form_post"],
