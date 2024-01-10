@@ -311,6 +311,8 @@ class Registration(Endpoint):
                     _custom = True
                 elif p.scheme == "http" and p.hostname in ["localhost", "127.0.0.1"]:
                     pass
+                elif p.scheme == "https":
+                    pass
                 else:
                     logger.error(
                         "InvalidRedirectURI: scheme:%s, hostname:%s",
@@ -519,7 +521,7 @@ class Registration(Endpoint):
         print("\n Reached process request authorization")
 
         args = {
-            "application_type": "web",
+            "application_type": "native",
             "response_types": ["code"],
             "redirect_uris": [redirect_uri],
             "grant_types": ["authorization_code"],

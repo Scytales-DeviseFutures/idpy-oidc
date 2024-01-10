@@ -353,7 +353,7 @@ class PidIssuerAuth(object):
         :return:
         """
         print("\nReached Call\n")
-        print(kwargs)
+        print("\nKwargs: ", kwargs)
 
         if not self.upstream_get:
             raise Exception(f"{self.__class__.__name__} doesn't have a working upstream_get")
@@ -379,7 +379,21 @@ class PidIssuerAuth(object):
         #    "route_pid/pid-countries.html", countries=countries_name, token=jws
         # )
 
-        return redirect(url_get("https://preprod.issuer.eudiw.dev/V04/pid", {"token": jws}))
+        from urllib.parse import parse_qs, urlparse
+
+        url = kwargs["query"]
+        query_params = parse_qs(url)
+        scope_value = query_params.get("scope", [None])[0]
+        print("\nScope: ", scope_value)
+
+        if scope_value == "org.iso.18013.5.1.mDL":
+            url = "https://preprod.issuer.eudiw.dev/mdl"
+        elif scope_value == "eu.europa.ec.eudiw.pid.1":
+            url = "https://preprod.issuer.eudiw.dev/V04/pid"
+        else:
+            url = "https://preprod.issuer.eudiw.dev/V04/pid"
+
+        return redirect(url_get(url, {"token": jws}))
 
     def authenticated_as(self, client_id, cookie=None, **kwargs):
         print("\nReached Authenticated as\n")
@@ -409,7 +423,6 @@ class PidIssuerAuth(object):
         :return: username of the authenticated user
         """
         username = kwargs["username"]
-        print("\nUsername: ", username)
         return username
 
     def cookie_info(self, cookie: List[dict], client_id: str) -> dict:

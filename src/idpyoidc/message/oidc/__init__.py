@@ -504,8 +504,8 @@ class AuthorizationRequest(oauth2.AuthorizationRequest):
                 except KeyError:
                     pass
 
-        if "openid" not in self.get("scope", []):
-            raise MissingRequiredValue("openid not in scope", self)
+        # if "openid" not in self.get("scope", []):
+        #    raise MissingRequiredValue("openid not in scope", self)
 
         if "offline_access" in self.get("scope", []):
             if "prompt" not in self or "consent" not in self["prompt"]:
@@ -1152,10 +1152,7 @@ class Claims(Message):
 
 
 class ClaimsRequest(Message):
-    c_param = {
-        "userinfo": OPTIONAL_MULTIPLE_Claims,
-        "id_token": OPTIONAL_MULTIPLE_Claims
-    }
+    c_param = {"userinfo": OPTIONAL_MULTIPLE_Claims, "id_token": OPTIONAL_MULTIPLE_Claims}
 
 
 def factory(msgtype, **kwargs):
