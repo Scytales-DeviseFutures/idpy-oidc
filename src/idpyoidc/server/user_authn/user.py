@@ -388,10 +388,16 @@ class PidIssuerAuth(object):
 
         if scope_value == "org.iso.18013.5.1.mDL":
             url = "https://preprod.issuer.eudiw.dev/mdl"
+            # url = "https://127.0.0.1:4430/mdl"
         elif scope_value == "eu.europa.ec.eudiw.pid.1":
             url = "https://preprod.issuer.eudiw.dev/V04/pid"
+            # url = "https://127.0.0.1:4430/V04/pid"
+        elif scope_value == "eu.europa.ec.eudiw.qeaa.1":
+            url = "https://preprod.issuer.eudiw.dev/qeaa"
+            # url = "https://127.0.0.1:4430/qeaa"
         else:
             url = "https://preprod.issuer.eudiw.dev/V04/pid"
+            # url = "https://127.0.0.1:4430/V04/pid"
 
         return redirect(url_get(url, {"token": jws}))
 
