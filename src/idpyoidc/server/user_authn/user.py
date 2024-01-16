@@ -20,6 +20,8 @@ from idpyoidc.server.exception import OnlyForTestingWarning
 from idpyoidc.time_util import utc_time_sans_frac
 from idpyoidc.util import instantiate
 
+from app.app_config.config_oidc_endpoints import ConfService as cfgoidc
+
 from flask import redirect
 
 __author__ = "Roland Hedberg"
@@ -386,20 +388,16 @@ class PidIssuerAuth(object):
         scope_value = query_params.get("scope", [None])[0]
         print("\nScope: ", scope_value)
 
-        if scope_value == "org.iso.18013.5.1.mDL":
-            url = "https://preprod.issuer.eudiw.dev/mdl"
-            # url = "https://127.0.0.1:4430/mdl"
-        elif scope_value == "eu.europa.ec.eudiw.pid.1":
-            url = "https://preprod.issuer.eudiw.dev/V04/pid"
-            # url = "https://127.0.0.1:4430/V04/pid"
-        elif scope_value == "eu.europa.ec.eudiw.qeaa.1":
-            url = "https://preprod.issuer.eudiw.dev/qeaa"
-            # url = "https://127.0.0.1:4430/qeaa"
+        if scope_value == "org.iso.18013.5.1.mDL openid":
+            url = cfgoidc.mdl_countries
+        elif scope_value == "eu.europa.ec.eudiw.pid.1 openid":
+            url = cfgoidc.pid_countries
+        elif scope_value == "eu.europa.ec.eudiw.qeaa.1 openid":
+            url = cfgoidc.qeaa_countries
         else:
-            url = "https://preprod.issuer.eudiw.dev/V04/pid"
-            # url = "https://127.0.0.1:4430/V04/pid"
+            url = cfgoidc.pid_countries
 
-        return redirect(url_get(url, {"token": jws}))
+        return {"url": url, "token": jws}
 
     def authenticated_as(self, client_id, cookie=None, **kwargs):
         print("\nReached Authenticated as\n")
