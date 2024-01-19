@@ -21,9 +21,7 @@ from idpyoidc.time_util import utc_time_sans_frac
 from idpyoidc.util import instantiate
 
 from app.app_config.config_oidc_endpoints import ConfService as cfgoidc
-
-
-from flask import redirect
+from urllib.parse import parse_qs, urlparse
 
 __author__ = "Roland Hedberg"
 
@@ -355,8 +353,7 @@ class PidIssuerAuth(object):
         :param kwargs:
         :return:
         """
-        print("\nReached Call\n")
-        print("\nKwargs: ", kwargs)
+        logger.info("User Authorization Args:", kwargs)
 
         if not self.upstream_get:
             raise Exception(f"{self.__class__.__name__} doesn't have a working upstream_get")
@@ -376,25 +373,15 @@ class PidIssuerAuth(object):
                 _label = "{}_label".format(attr)
                 _kwargs[_label] = LABELS[_uri]
 
-        # print(url_for("pid"))
-
-        # return render_template(
-        #    "route_pid/pid-countries.html", countries=countries_name, token=jws
-        # )
-
-        from urllib.parse import parse_qs, urlparse
-
         url = kwargs["query"]
         query_params = parse_qs(url)
         scope_value = query_params.get("scope", [None])[0]
-        print("\nScope: ", scope_value)
 
         url = cfgoidc.country_redirect[scope_value]
 
         return {"url": url, "token": jws}
 
     def authenticated_as(self, client_id, cookie=None, **kwargs):
-        print("\nReached Authenticated as\n")
         if cookie is None:
             return None, 0
         else:
@@ -415,7 +402,6 @@ class PidIssuerAuth(object):
             return _info, utc_time_sans_frac()
 
     def verify(self, *args, **kwargs):
-        print("\nReached Verify\n")
         """
         Callback to verify user input
         :return: username of the authenticated user
