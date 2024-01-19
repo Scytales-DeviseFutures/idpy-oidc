@@ -22,6 +22,7 @@ from idpyoidc.util import instantiate
 
 from app.app_config.config_oidc_endpoints import ConfService as cfgoidc
 
+
 from flask import redirect
 
 __author__ = "Roland Hedberg"
@@ -388,14 +389,7 @@ class PidIssuerAuth(object):
         scope_value = query_params.get("scope", [None])[0]
         print("\nScope: ", scope_value)
 
-        if scope_value == "org.iso.18013.5.1.mDL openid":
-            url = cfgoidc.mdl_countries
-        elif scope_value == "eu.europa.ec.eudiw.pid.1 openid":
-            url = cfgoidc.pid_countries
-        elif scope_value == "eu.europa.ec.eudiw.qeaa.1 openid":
-            url = cfgoidc.qeaa_countries
-        else:
-            url = cfgoidc.pid_countries
+        url = cfgoidc.country_redirect[scope_value]
 
         return {"url": url, "token": jws}
 
