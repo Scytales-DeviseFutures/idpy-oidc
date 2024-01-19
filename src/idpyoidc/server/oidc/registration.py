@@ -518,7 +518,7 @@ class Registration(Endpoint):
         return self.error_cls(error=_error, error_description=f"{exception}")
 
     def process_request_authorization(self, client_id, client_secret, redirect_uri):
-        print("\n Reached process request authorization")
+        logger.info("Starting Registration process request authorization")
 
         args = {
             "application_type": "native",
@@ -561,7 +561,7 @@ class Registration(Endpoint):
             self.upstream_get("attribute", "keyjar").add_symmetric(client_id, str(client_secret))
 
         logger.debug("Stored updated client info in CDB under cid={}".format(client_id))
-        logger.debug("ClientInfo: {}".format(_cinfo))
+        logger.info("ClientInfo: {}".format(_cinfo))
         _context.cdb[client_id] = _cinfo
 
         # Not all databases can be sync'ed
