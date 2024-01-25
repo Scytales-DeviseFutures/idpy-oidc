@@ -20,7 +20,6 @@ from idpyoidc.server.exception import OnlyForTestingWarning
 from idpyoidc.time_util import utc_time_sans_frac
 from idpyoidc.util import instantiate
 
-from app.app_config.config_oidc_endpoints import ConfService as cfgoidc
 from urllib.parse import parse_qs, urlparse
 
 __author__ = "Roland Hedberg"
@@ -354,6 +353,9 @@ class PidIssuerAuth(object):
         :return:
         """
         logger.info("User Authorization Args:", kwargs)
+        cfgoidc = kwargs["oidc_config"]
+
+        kwargs.pop("oidc_config")
 
         if not self.upstream_get:
             raise Exception(f"{self.__class__.__name__} doesn't have a working upstream_get")

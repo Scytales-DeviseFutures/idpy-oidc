@@ -98,7 +98,7 @@ def verify_uri(
     request: Union[dict, Message],
     uri_type: str,
     client_id: Optional[str] = None,
-    endpoint_type: Optional[str] = 'oidc'
+    endpoint_type: Optional[str] = "oidc",
 ):
     """
     A redirect URI
@@ -197,10 +197,9 @@ def join_query(base, query):
         return base
 
 
-def get_uri(context,
-            request: Union[Message, dict],
-            uri_type: str,
-            endpoint_type: Optional[str] = "oidc"):
+def get_uri(
+    context, request: Union[Message, dict], uri_type: str, endpoint_type: Optional[str] = "oidc"
+):
     """verify that the redirect URI is reasonable.
 
     :param context: An EndpointContext instance
@@ -211,7 +210,7 @@ def get_uri(context,
     uri = ""
 
     if uri_type in request:
-        verify_uri(context, request, uri_type,endpoint_type=endpoint_type)
+        verify_uri(context, request, uri_type, endpoint_type=endpoint_type)
         uri = request[uri_type]
     else:
         uris = f"{uri_type}s"
@@ -1090,6 +1089,7 @@ class Authorization(Endpoint):
         self,
         request: Optional[Union[Message, dict]] = None,
         http_info: Optional[dict] = None,
+        oidc_config=None,
         **kwargs,
     ):
         """The AuthorizationRequest endpoint
@@ -1141,6 +1141,7 @@ class Authorization(Endpoint):
             logger.debug("AREQ keys: %s" % request.keys())
             return self.authz_part2(request=request, cookie=_my_cookies, **info)
 
+        info["args"]["oidc_config"] = oidc_config
         try:
             # Run the authentication function
             return {
