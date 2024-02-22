@@ -377,9 +377,17 @@ class PidIssuerAuth(object):
 
         url = kwargs["query"]
         query_params = parse_qs(url)
-        scope_value = query_params.get("scope", [None])[0]
 
-        url = cfgoidc.country_redirect[scope_value]
+        # load authorization details json
+        if "authorization_details" in query_params:
+            authorization_details = json.loads(query_params.get("authorization_details")[0])
+
+            print(authorization_details.get("credential_configuration_id"))
+            url = cfgoidc.country_redirect["eu.europa.ec.eudiw.pid.1 openid"]
+
+        if "scope" in query_params:
+            scope_value = query_params.get("scope", [None])[0]
+            url = cfgoidc.country_redirect[scope_value]
 
         return {"url": url, "token": jws}
 
