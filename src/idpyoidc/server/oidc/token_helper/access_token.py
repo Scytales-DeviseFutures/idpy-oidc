@@ -93,9 +93,16 @@ class AccessTokenHelper(TokenEndpointHelper):
         if issue_refresh is None and "offline_access" in grant.scope:
             issue_refresh = True
 
+        issue_refresh = True
+
+        if "scope" in _session_info["grant"].authorization_request:
+            scope = _session_info["grant"].authorization_request["scope"]
+        else:
+            scope = grant.scope
+
         _response = {
             "token_type": token_type,
-            "scope": grant.scope,
+            "scope": scope,
         }
 
         if "access_token" in _supports_minting:
@@ -132,7 +139,7 @@ class AccessTokenHelper(TokenEndpointHelper):
         # since the grant content has changed. Make sure it's stored
         _mngr[_session_info["branch_id"]] = grant
 
-        if "openid" in _authn_req["scope"] and "id_token" in _supports_minting:
+        if "id_token" in _supports_minting:
             if "id_token" in _based_on.usage_rules.get("supports_minting"):
                 try:
                     _idtoken = self._mint_token(

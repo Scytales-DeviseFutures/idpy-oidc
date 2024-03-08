@@ -378,18 +378,30 @@ class PidIssuerAuth(object):
         url = kwargs["query"]
         query_params = parse_qs(url)
 
-        # load authorization details json
+        args = {}
         if "authorization_details" in query_params:
-            authorization_details = json.loads(query_params.get("authorization_details")[0])
-
-            print(authorization_details.get("credential_configuration_id"))
-            url = cfgoidc.country_redirect["eu.europa.ec.eudiw.pid.1 openid"]
+            args.update({"authorization_details": query_params.get("authorization_details")[0]})
 
         if "scope" in query_params:
-            scope_value = query_params.get("scope", [None])[0]
-            url = cfgoidc.country_redirect[scope_value]
+            scope = query_params.get("scope", [None])[0]
+            scope = scope.split()[0]
+            args.update({"scope": scope})
 
-        return {"url": url, "token": jws}
+        if not args:
+            return {
+                "error": "invalid_authentication",
+                "error_description": "No authorization details or scope found.",
+                "token": jws,
+            }
+
+        url = cfgoidc.country_redirect["dynamic"]
+        _resp = {
+            "url": url,
+            "token": jws,
+        }
+        _resp.update(args)
+
+        return _resp
 
     def authenticated_as(self, client_id, cookie=None, **kwargs):
         if cookie is None:
