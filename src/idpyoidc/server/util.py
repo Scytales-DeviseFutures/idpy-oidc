@@ -27,6 +27,8 @@ def build_endpoints(conf, upstream_get, issuer):
     :return:
     """
 
+    logger.debug("Inside build_endpoints")
+
     if issuer.endswith("/"):
         _url = issuer[:-1]
     else:
@@ -34,22 +36,34 @@ def build_endpoints(conf, upstream_get, issuer):
 
     endpoint = {}
     for name, spec in conf.items():
+        logger.debug("item name: " + name)
         kwargs = spec.get("kwargs", {})
+        logger.debug("kwargs: " + kwargs)
 
         # class can be a string (class path) or a class reference
         if isinstance(spec["class"], str):
+            logger.debug("instance 1")
             _instance = importer(spec["class"])(upstream_get=upstream_get, **kwargs)
+            logger.debug(_instance)
         else:
+            logger.debug("instance 2")
             _instance = spec["class"](upstream_get=upstream_get, **kwargs)
+            logger.debug(_instance)
 
         try:
+            logger.debug("path")
             _path = spec["path"]
+            logger.debug("path: " + _path)
+
         except KeyError:
+            logger.debug("Error")
             # Should there be a default ?
             raise
 
         _instance.endpoint_path = _path
         _instance.full_path = "{}/{}".format(_url, _path)
+
+        logger.debug("final isntance: " + _instance)
 
         endpoint[_instance.name] = _instance
 
