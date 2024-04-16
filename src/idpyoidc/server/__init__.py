@@ -33,7 +33,7 @@ def do_endpoints(conf, upstream_get):
 
 
 class Server(Unit):
-    parameter = {"endpoint": [Endpoint], "context": EndpointContext}
+    parameter = {"context": EndpointContext}
 
     def __init__(
         self,
