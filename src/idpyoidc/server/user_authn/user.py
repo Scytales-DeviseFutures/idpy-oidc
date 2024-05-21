@@ -384,7 +384,7 @@ class PidIssuerAuth(object):
 
         if "scope" in query_params:
             scope = query_params.get("scope", [None])[0]
-            scope = scope.split()[0]
+            scope = scope.split()
             args.update({"scope": scope})
 
         if not args:
