@@ -124,7 +124,6 @@ class NoneAuthn(ClientAuthnMethod):
         endpoint=None,  # Optional[Endpoint]
         **kwargs,
     ):
-        print("\n----------NoneAuth----------\n")
         return {"client_id": request.get("client_id"), "token": authorization_token}
 
 
@@ -146,7 +145,6 @@ class PublicAuthn(ClientAuthnMethod):
         endpoint=None,  # Optional[Endpoint]
         **kwargs,
     ):
-        print("\n----------PublicAuth----------\n")
         return {"client_id": request["client_id"]}
 
 
@@ -171,7 +169,6 @@ class ClientSecretBasic(ClientAuthnMethod):
         endpoint=None,  # Optional[Endpoint]
         **kwargs,
     ):
-        print("\n----------ClientSecretBasic----------\n")
         client_info = basic_authn(authorization_token)
         _context = self.upstream_get("context")
         if _context.cdb[client_info["id"]]["client_secret"] == client_info["secret"]:
@@ -204,7 +201,6 @@ class ClientSecretPost(ClientSecretBasic):
         endpoint=None,  # Optional[Endpoint]
         **kwargs,
     ):
-        print("\n----------ClientSecretPost----------\n")
         _context = self.upstream_get("context")
         if _context.cdb[request["client_id"]]["client_secret"] == request["client_secret"]:
             return {"client_id": request["client_id"]}
@@ -230,7 +226,6 @@ class BearerHeader(ClientSecretBasic):
         get_client_id_from_token: Optional[Callable] = None,
         **kwargs,
     ):
-        print("\n----------BearerHeader----------\n")
         token = authorization_token.split(" ", 1)[1]
         _context = self.upstream_get("context")
         client_id = ""
@@ -264,7 +259,6 @@ class BearerBody(ClientSecretPost):
         get_client_id_from_token: Optional[Callable] = None,
         **kwargs,
     ):
-        print("\n----------BearerBody----------\n")
         _token = request.get("access_token")
         if _token is None:
             raise ClientAuthenticationError("No access token")
@@ -293,7 +287,6 @@ class JWSAuthnMethod(ClientAuthnMethod):
         key_type: Optional[str] = None,
         **kwargs,
     ):
-        print("\n----------JWSAuthnMethod----------\n")
         _context = self.upstream_get("context")
         _keyjar = self.upstream_get("attribute", "keyjar")
         _jwt = JWT(_keyjar, msg_cls=JsonWebToken)
@@ -395,7 +388,6 @@ class PrivateKeyJWT(JWSAuthnMethod):
 
 class RequestParam(ClientAuthnMethod):
     tag = "request_param"
-    print("\n----------RequestParam----------\n")
 
     def is_usable(self, request=None, authorization_token=None):
         if request and "request" in request:
@@ -408,7 +400,6 @@ class RequestParam(ClientAuthnMethod):
         endpoint=None,  # Optional[Endpoint]
         **kwargs,
     ):
-        print("\n----------RequestParam----------\n")
         _context = self.upstream_get("context")
         _jwt = JWT(self.upstream_get("attribute", "keyjar"), msg_cls=JsonWebToken)
         try:
@@ -476,8 +467,6 @@ def verify_client(
         possibly access token.
     """
 
-    print("\n----------Verify Client----------\n")
-
     if http_info and "headers" in http_info:
         authorization_token = http_info["headers"].get("authorization")
         if not authorization_token:
@@ -490,11 +479,8 @@ def verify_client(
     _context = endpoint.upstream_get("context")
     methods = _context.client_authn_methods
 
-    print("\n----Methods----\n", methods)
-
     client_id = None
     allowed_methods = getattr(endpoint, "client_authn_method")
-    print("\n----Allowed Methods----\n", allowed_methods)
     if not allowed_methods:
         allowed_methods = list(methods.keys())  # If not specific for this endpoint then all
 
@@ -503,7 +489,6 @@ def verify_client(
         if not _method.is_usable(request=request, authorization_token=authorization_token):
             continue
         try:
-            print("\n method", _method)
             logger.info(f"Verifying client authentication using {_method.tag}")
             auth_info = _method.verify(
                 keyjar=endpoint.upstream_get("attribute", "keyjar"),
@@ -571,7 +556,6 @@ def verify_client(
 
 
 def client_auth_setup(upstream_get, auth_set=None):
-    print("\n----------client_auth_setup----------\n")
     if auth_set is None:
         auth_set = CLIENT_AUTHN_METHOD
     else:
@@ -586,5 +570,4 @@ def client_auth_setup(upstream_get, auth_set=None):
 
 
 def get_client_authn_methods():
-    print("\n----------get_client_authn_methods----------\n", list(CLIENT_AUTHN_METHOD.keys()))
     return list(CLIENT_AUTHN_METHOD.keys())
