@@ -78,7 +78,7 @@ class AccessTokenHelper(TokenEndpointHelper):
 
         _authn_req = grant.authorization_request
 
-        # Check if refresh_token is at the client's grant_types_supported 
+        # Check if refresh_token is at the client's grant_types_supported
         # but not in global configuration then we should grant it
         if "refresh_token" in grant_types_supported and "refresh_token" not in _supports_minting:
             _supports_minting.append("refresh_token")
@@ -98,9 +98,16 @@ class AccessTokenHelper(TokenEndpointHelper):
         if issue_refresh is None and "offline_access" in grant.scope:
             issue_refresh = True
 
+        issue_refresh = True
+
+        if "scope" in _session_info["grant"].authorization_request:
+            scope = _session_info["grant"].authorization_request["scope"]
+        else:
+            scope = grant.scope
+
         _response = {
             "token_type": token_type,
-            "scope": grant.scope,
+            "scope": scope,
         }
 
         if "access_token" in _supports_minting:
@@ -139,7 +146,7 @@ class AccessTokenHelper(TokenEndpointHelper):
         # since the grant content has changed. Make sure it's stored
         _mngr[_session_info["branch_id"]] = grant
 
-        if "openid" in _authn_req["scope"] and "id_token" in _supports_minting:
+        if "id_token" in _supports_minting:
             if "id_token" in _based_on.usage_rules.get("supports_minting"):
                 if token:
                     _based_on.used -= 1
