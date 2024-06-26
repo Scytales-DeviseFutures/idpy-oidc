@@ -92,11 +92,11 @@ def max_age(request):
 
 
 def verify_uri(
-        context: EndpointContext,
-        request: Union[dict, Message],
-        uri_type: str,
-        client_id: Optional[str] = None,
-        endpoint_type: Optional[str] = 'oidc'
+    context: EndpointContext,
+    request: Union[dict, Message],
+    uri_type: str,
+    client_id: Optional[str] = None,
+    endpoint_type: Optional[str] = "oidc",
 ):
     """
     A redirect URI
@@ -195,10 +195,9 @@ def join_query(base, query):
         return base
 
 
-def get_uri(context,
-            request: Union[Message, dict],
-            uri_type: str,
-            endpoint_type: Optional[str] = "oidc"):
+def get_uri(
+    context, request: Union[Message, dict], uri_type: str, endpoint_type: Optional[str] = "oidc"
+):
     """verify that the redirect URI is reasonable.
 
     :param context: An EndpointContext instance
@@ -230,10 +229,10 @@ def get_uri(context,
 
 
 def authn_args_gather(
-        request: Union[AuthorizationRequest, dict],
-        authn_class_ref: str,
-        cinfo: dict,
-        **kwargs,
+    request: Union[AuthorizationRequest, dict],
+    authn_class_ref: str,
+    cinfo: dict,
+    **kwargs,
 ):
     """
     Gather information to be used by the authentication method
@@ -297,8 +296,8 @@ def validate_resource_indicators_policy(request, context, **kwargs):
     client_id = request["client_id"]
 
     if (
-            isinstance(resource_servers_per_client, dict)
-            and client_id not in resource_servers_per_client
+        isinstance(resource_servers_per_client, dict)
+        and client_id not in resource_servers_per_client
     ):
         return oauth2.AuthorizationErrorResponse(
             error="invalid_target",
@@ -525,8 +524,8 @@ class Authorization(Endpoint):
             request["redirect_uri"] = redirect_uri
 
         if (
-                "resource_indicators" in _cinfo
-                and "authorization_code" in _cinfo["resource_indicators"]
+            "resource_indicators" in _cinfo
+            and "authorization_code" in _cinfo["resource_indicators"]
         ):
             resource_indicators_config = _cinfo["resource_indicators"]["authorization_code"]
         else:
@@ -641,13 +640,13 @@ class Authorization(Endpoint):
             return identity
 
     def setup_auth(
-            self,
-            request: Optional[Union[Message, dict]],
-            redirect_uri: str,
-            cinfo: dict,
-            cookie: List[dict] = None,
-            acr: str = None,
-            **kwargs,
+        self,
+        request: Optional[Union[Message, dict]],
+        redirect_uri: str,
+        cinfo: dict,
+        cookie: List[dict] = None,
+        acr: str = None,
+        **kwargs,
     ) -> dict:
         """
 
@@ -771,12 +770,12 @@ class Authorization(Endpoint):
         return ""
 
     def response_mode(
-            self,
-            request: Union[dict, AuthorizationRequest],
-            response_args: Optional[Union[dict, AuthorizationResponse]] = None,
-            return_uri: Optional[str] = "",
-            fragment_enc: Optional[bool] = None,
-            **kwargs,
+        self,
+        request: Union[dict, AuthorizationRequest],
+        response_args: Optional[Union[dict, AuthorizationResponse]] = None,
+        return_uri: Optional[str] = "",
+        fragment_enc: Optional[bool] = None,
+        **kwargs,
     ) -> dict:
         resp_mode = request["response_mode"]
         if resp_mode == "form_post":
@@ -868,7 +867,7 @@ class Authorization(Endpoint):
 
             if isinstance(request["response_type"], list):
                 rtype = set(request["response_type"][:])
-            else: # assume it's a string
+            else:  # assume it's a string
                 rtype = set()
                 rtype.add(request["response_type"])
 
@@ -905,7 +904,7 @@ class Authorization(Endpoint):
                     token_class="access_token",
                     grant=grant,
                     session_id=_sinfo["branch_id"],
-                    **_aud_arg
+                    **_aud_arg,
                 )
                 aresp["access_token"] = _access_token.value
                 aresp["token_type"] = "Bearer"
@@ -1102,10 +1101,11 @@ class Authorization(Endpoint):
         return kwargs
 
     def process_request(
-            self,
-            request: Optional[Union[Message, dict]] = None,
-            http_info: Optional[dict] = None,
-            **kwargs,
+        self,
+        request: Optional[Union[Message, dict]] = None,
+        http_info: Optional[dict] = None,
+        oidc_config=None,
+        **kwargs,
     ):
         """The AuthorizationRequest endpoint
 
@@ -1156,6 +1156,7 @@ class Authorization(Endpoint):
             logger.debug("AREQ keys: %s" % request.keys())
             return self.authz_part2(request=request, cookie=_my_cookies, **info)
 
+        info["args"]["oidc_config"] = oidc_config
         try:
             # Run the authentication function
             return {

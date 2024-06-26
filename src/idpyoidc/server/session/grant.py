@@ -144,6 +144,8 @@ class Grant(Item):
         self.extra = extra or {}
         self.remember_token = remember_token
         self.remove_inactive_token = remove_inactive_token
+        self.notification_ids = []
+        self.transaction_ids = {}
 
         if token_map is None:
             self.token_map = TOKEN_MAP
@@ -157,6 +159,18 @@ class Grant(Item):
             authorization_details=self.authorization_details,
             resources=self.resources,
         )
+
+    def add_notification(self, notification_id):
+        self.notification_ids.append(notification_id)
+
+    def add_transaction(self, transaction_id, credential_response):
+        self.transaction_ids.update({transaction_id: credential_response})
+
+    def remove_notification(self, notification_id):
+        self.notification_ids.remove(notification_id)
+
+    def remove_transaction(self, transaction_id):
+        self.transaction_ids.pop(transaction_id)
 
     def find_scope(self, based_on):
         if isinstance(based_on, str):
@@ -244,7 +258,9 @@ class Grant(Item):
 
         if _claims_restriction and context.session_manager.node_type[0] == "user":
             user_id, client_id, _ = context.session_manager.decrypt_branch_id(session_id)
-            user_info = context.claims_interface.get_user_claims(user_id, _claims_restriction, client_id=client_id)
+            user_info = context.claims_interface.get_user_claims(
+                user_id, _claims_restriction, client_id=client_id
+            )
             payload.update(user_info)
 
         # Should I add the acr value
@@ -599,7 +615,9 @@ class ExchangeGrant(Grant):
             )
 
         user_id, client_id, _ = endpoint_context.session_manager.decrypt_session_id(session_id)
-        user_info = endpoint_context.claims_interface.get_user_claims(user_id, _claims_restriction, client_id)
+        user_info = endpoint_context.claims_interface.get_user_claims(
+            user_id, _claims_restriction, client_id
+        )
         payload.update(user_info)
 
         # Should I add the acr value

@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Optional
 from typing import Union
@@ -173,6 +174,13 @@ class Token(Endpoint):
         _session_info = _context.session_manager.get_session_info_by_token(
             _access_token, grant=True, handler_key=_handler_key
         )
+
+        if "authorization_details" in _session_info["grant"].authorization_request:
+            authorization_details = json.loads(
+                _session_info["grant"].authorization_request["authorization_details"]
+            )
+
+            response_args["authorization_details"] = authorization_details
 
         _cookie = _context.new_cookie(
             name=_context.cookie_handler.name["session"],
