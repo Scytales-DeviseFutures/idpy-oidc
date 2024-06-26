@@ -9,15 +9,15 @@ from cryptojwt.exception import MissingValue
 from cryptojwt.jwt import JWT
 from cryptojwt.jwt import utc_time_sans_frac
 
-from idpyoidc import claims
-from idpyoidc.util import importer
+from idpyoidc import metadata
+from idpyoidc.exception import ImproperlyConfigured
 from idpyoidc.message import Message
 from idpyoidc.message import oidc
 from idpyoidc.message.oauth2 import ResponseMessage
 from idpyoidc.server.endpoint import Endpoint
 from idpyoidc.server.exception import ClientAuthenticationError
-from idpyoidc.exception import ImproperlyConfigured
 from idpyoidc.server.util import OAUTH2_NOCACHE_HEADERS
+from idpyoidc.util import importer
 
 logger = logging.getLogger(__name__)
 
@@ -30,12 +30,14 @@ class UserInfo(Endpoint):
     response_placement = "body"
     endpoint_name = "userinfo_endpoint"
     name = "userinfo"
+    endpoint_type = "oidc"
+
     _supports = {
         "claim_types_supported": ["normal", "aggregated", "distributed"],
         "encrypt_userinfo_supported": True,
-        "userinfo_signing_alg_values_supported": claims.get_signing_algs,
-        "userinfo_encryption_alg_values_supported": claims.get_encryption_algs,
-        "userinfo_encryption_enc_values_supported": claims.get_encryption_encs,
+        "userinfo_signing_alg_values_supported": metadata.get_signing_algs(),
+        "userinfo_encryption_alg_values_supported": metadata.get_encryption_algs(),
+        "userinfo_encryption_enc_values_supported": metadata.get_encryption_encs(),
     }
 
     def __init__(
@@ -133,16 +135,39 @@ class UserInfo(Endpoint):
         if token.is_active() is False:
             return self.error_cls(error="invalid_token", error_description="Invalid Token")
 
+        allowed = True
+        _auth_event = _grant.authentication_event
+        # if the authentication is still active or offline_access is granted.
+        if not _auth_event["valid_until"] >= utc_time_sans_frac():
+            logger.debug(
+                "authentication not valid: {} > {}".format(
+                    datetime.fromtimestamp(_auth_event["valid_until"]),
+                    datetime.fromtimestamp(utc_time_sans_frac()),
+                )
+            )
+            allowed = False
+
+            # This has to be made more finegrained.
+            # if "offline_access" in session["authn_req"]["scope"]:
+            #     pass
+
         _cntxt = self.upstream_get("context")
-        _claims_restriction = _cntxt.claims_interface.get_claims(
-            _session_info["branch_id"], scopes=token.scope, claims_release_point="userinfo"
-        )
-        info = _cntxt.claims_interface.get_user_claims(
-            _session_info["user_id"], claims_restriction=_claims_restriction
-        )
-        info["sub"] = _grant.sub
-        if _grant.add_acr_value("userinfo"):
-            info["acr"] = _grant.authentication_event["authn_info"]
+        if allowed:
+            _claims_restriction = _cntxt.claims_interface.get_claims(
+                _session_info["branch_id"], scopes=token.scope, claims_release_point="userinfo"
+            )
+            info = _cntxt.claims_interface.get_user_claims(
+                _session_info["user_id"],
+                claims_restriction=_claims_restriction,
+                client_id=_session_info["client_id"]
+            )
+            info["sub"] = _grant.sub
+            if _grant.add_acr_value("userinfo"):
+                info["acr"] = _grant.authentication_event["authn_info"]
+
+            extra_claims = kwargs.get("extra_claims")
+            if extra_claims:
+                info.update(extra_claims)
 
         if "userinfo" in _cntxt.cdb[request["client_id"]]:
             self.config["policy"] = _cntxt.cdb[request["client_id"]]["userinfo"]["policy"]

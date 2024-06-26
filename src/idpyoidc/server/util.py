@@ -2,6 +2,7 @@ import json
 import logging
 
 from idpyoidc.util import importer
+
 from .exception import OidcEndpointError
 
 logger = logging.getLogger(__name__)
@@ -42,14 +43,11 @@ def build_endpoints(conf, upstream_get, issuer):
         else:
             _instance = spec["class"](upstream_get=upstream_get, **kwargs)
 
-        try:
-            _path = spec["path"]
-        except KeyError:
-            # Should there be a default ?
-            raise
+        _path = spec.get("path", "")
 
-        _instance.endpoint_path = _path
-        _instance.full_path = "{}/{}".format(_url, _path)
+        if _path:
+            _instance.endpoint_path = _path
+            _instance.full_path = "{}/{}".format(_url, _path)
 
         endpoint[_instance.name] = _instance
 

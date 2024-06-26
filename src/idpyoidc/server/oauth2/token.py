@@ -13,6 +13,7 @@ from idpyoidc.server.exception import ProcessError
 from idpyoidc.server.oauth2.token_helper import TokenEndpointHelper
 from idpyoidc.server.session import MintingNotAllowed
 from idpyoidc.util import importer
+
 from .token_helper.access_token import AccessTokenHelper
 from .token_helper.client_credentials import ClientCredentials
 from .token_helper.refresh_token import RefreshTokenHelper
@@ -34,6 +35,7 @@ class Token(Endpoint):
     name = "token"
     default_capabilities = {"token_endpoint_auth_signing_alg_values_supported": None}
     token_exchange_helper = TokenExchangeHelper
+    endpoint_type = "oauth2"
 
     helper_by_grant_type = {
         "authorization_code": AccessTokenHelper,

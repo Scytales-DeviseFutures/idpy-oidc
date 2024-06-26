@@ -14,7 +14,7 @@ from cryptojwt.jws.exception import NoSuitableSigningKeys
 from cryptojwt.utils import as_bytes
 from cryptojwt.utils import b64e
 
-from idpyoidc import claims
+from idpyoidc import metadata
 from idpyoidc.exception import ImproperlyConfigured
 from idpyoidc.exception import ParameterError
 from idpyoidc.exception import URIError
@@ -39,10 +39,9 @@ from idpyoidc.server.session import Revoked
 from idpyoidc.server.token.exception import UnknownToken
 from idpyoidc.server.user_authn.authn_context import pick_auth
 from idpyoidc.time_util import utc_time_sans_frac
+from idpyoidc.util import importer
 from idpyoidc.util import rndstr
 from idpyoidc.util import split_uri
-from idpyoidc.util import importer
-
 
 logger = logging.getLogger(__name__)
 
@@ -93,10 +92,11 @@ def max_age(request):
 
 
 def verify_uri(
-    context: EndpointContext,
-    request: Union[dict, Message],
-    uri_type: str,
-    client_id: Optional[str] = None,
+        context: EndpointContext,
+        request: Union[dict, Message],
+        uri_type: str,
+        client_id: Optional[str] = None,
+        endpoint_type: Optional[str] = 'oidc'
 ):
     """
     A redirect URI
@@ -138,7 +138,8 @@ def verify_uri(
         redirect_uris = client_info.get(f"{uri_type}")
 
     if redirect_uris is None:
-        raise RedirectURIError(f"No registered {uri_type} for {_cid}")
+        if endpoint_type == "oidc":
+            raise RedirectURIError(f"No registered {uri_type} for {_cid}")
     else:
         match = False
         for _item in redirect_uris:
@@ -194,7 +195,10 @@ def join_query(base, query):
         return base
 
 
-def get_uri(context, request, uri_type):
+def get_uri(context,
+            request: Union[Message, dict],
+            uri_type: str,
+            endpoint_type: Optional[str] = "oidc"):
     """verify that the redirect URI is reasonable.
 
     :param context: An EndpointContext instance
@@ -205,7 +209,7 @@ def get_uri(context, request, uri_type):
     uri = ""
 
     if uri_type in request:
-        verify_uri(context, request, uri_type)
+        verify_uri(context, request, uri_type, endpoint_type=endpoint_type)
         uri = request[uri_type]
     else:
         uris = f"{uri_type}s"
@@ -226,10 +230,10 @@ def get_uri(context, request, uri_type):
 
 
 def authn_args_gather(
-    request: Union[AuthorizationRequest, dict],
-    authn_class_ref: str,
-    cinfo: dict,
-    **kwargs,
+        request: Union[AuthorizationRequest, dict],
+        authn_class_ref: str,
+        cinfo: dict,
+        **kwargs,
 ):
     """
     Gather information to be used by the authentication method
@@ -269,7 +273,9 @@ def authn_args_gather(
 
 def check_unknown_scopes_policy(request_info, client_id, context):
     cinfo = context.cdb.get(client_id, {})
-    deny_unknown_scopes = cinfo.get("deny_unknown_scopes", context.get_preference("deny_unknown_scopes"))
+    deny_unknown_scopes = cinfo.get(
+        "deny_unknown_scopes", context.get_preference("deny_unknown_scopes")
+    )
     if not deny_unknown_scopes:
         return
 
@@ -285,17 +291,14 @@ def check_unknown_scopes_policy(request_info, client_id, context):
 
 def validate_resource_indicators_policy(request, context, **kwargs):
     if "resource" not in request:
-        return oauth2.AuthorizationErrorResponse(
-            error="invalid_target",
-            error_description="Missing resource parameter",
-        )
+        return request
 
     resource_servers_per_client = kwargs["resource_servers_per_client"]
     client_id = request["client_id"]
 
     if (
-        isinstance(resource_servers_per_client, dict)
-        and client_id not in resource_servers_per_client
+            isinstance(resource_servers_per_client, dict)
+            and client_id not in resource_servers_per_client
     ):
         return oauth2.AuthorizationErrorResponse(
             error="invalid_target",
@@ -342,6 +345,7 @@ class Authorization(Endpoint):
     response_placement = "url"
     endpoint_name = "authorization_endpoint"
     name = "authorization"
+    endpoint_type = "oauth2"
 
     _supports = {
         "claims_parameter_supported": True,
@@ -349,9 +353,9 @@ class Authorization(Endpoint):
         "request_uri_parameter_supported": True,
         "response_types_supported": ["code"],
         "response_modes_supported": ["query", "fragment", "form_post"],
-        "request_object_signing_alg_values_supported": claims.get_signing_algs,
-        "request_object_encryption_alg_values_supported": claims.get_encryption_algs,
-        "request_object_encryption_enc_values_supported": claims.get_encryption_encs,
+        "request_object_signing_alg_values_supported": metadata.get_signing_algs(),
+        "request_object_encryption_alg_values_supported": metadata.get_encryption_algs(),
+        "request_object_encryption_enc_values_supported": metadata.get_encryption_encs(),
         # "grant_types_supported": ["authorization_code", "implicit"],
         "code_challenge_methods_supported": ["S256"],
         "scopes_supported": [],
@@ -370,7 +374,7 @@ class Authorization(Endpoint):
     def filter_request(self, context, req):
         return req
 
-    def extra_response_args(self, aresp):
+    def extra_response_args(self, aresp, **kwargs):
         return aresp
 
     def authentication_error_response(self, request, error, error_description, **kwargs):
@@ -510,7 +514,7 @@ class Authorization(Endpoint):
 
         # Get a verified redirect URI
         try:
-            redirect_uri = get_uri(context, request, "redirect_uri")
+            redirect_uri = get_uri(context, request, "redirect_uri", self.endpoint_type)
         except (RedirectURIError, ParameterError) as err:
             return self.authentication_error_response(
                 request,
@@ -521,8 +525,8 @@ class Authorization(Endpoint):
             request["redirect_uri"] = redirect_uri
 
         if (
-            "resource_indicators" in _cinfo
-            and "authorization_code" in _cinfo["resource_indicators"]
+                "resource_indicators" in _cinfo
+                and "authorization_code" in _cinfo["resource_indicators"]
         ):
             resource_indicators_config = _cinfo["resource_indicators"]["authorization_code"]
         else:
@@ -637,13 +641,13 @@ class Authorization(Endpoint):
             return identity
 
     def setup_auth(
-        self,
-        request: Optional[Union[Message, dict]],
-        redirect_uri: str,
-        cinfo: dict,
-        cookie: List[dict] = None,
-        acr: str = None,
-        **kwargs,
+            self,
+            request: Optional[Union[Message, dict]],
+            redirect_uri: str,
+            cinfo: dict,
+            cookie: List[dict] = None,
+            acr: str = None,
+            **kwargs,
     ) -> dict:
         """
 
@@ -767,12 +771,12 @@ class Authorization(Endpoint):
         return ""
 
     def response_mode(
-        self,
-        request: Union[dict, AuthorizationRequest],
-        response_args: Optional[Union[dict, AuthorizationResponse]] = None,
-        return_uri: Optional[str] = "",
-        fragment_enc: Optional[bool] = None,
-        **kwargs,
+            self,
+            request: Union[dict, AuthorizationRequest],
+            response_args: Optional[Union[dict, AuthorizationResponse]] = None,
+            return_uri: Optional[str] = "",
+            fragment_enc: Optional[bool] = None,
+            **kwargs,
     ) -> dict:
         resp_mode = request["response_mode"]
         if resp_mode == "form_post":
@@ -862,7 +866,12 @@ class Authorization(Endpoint):
                 list(set(scope + resource_scopes)), _sinfo["client_id"]
             )
 
-            rtype = set(request["response_type"][:])
+            if isinstance(request["response_type"], list):
+                rtype = set(request["response_type"][:])
+            else: # assume it's a string
+                rtype = set()
+                rtype.add(request["response_type"])
+
             handled_response_type = []
 
             fragment_enc = True
@@ -870,6 +879,15 @@ class Authorization(Endpoint):
                 fragment_enc = False
 
             grant = _sinfo["grant"]
+
+            _aud = request.get("audience", None)
+            if _aud:
+                if isinstance(_aud, list):
+                    _aud_arg = {"aud": _aud}
+                else:
+                    _aud_arg = {"aud": [_aud]}
+            else:
+                _aud_arg = {}
 
             if "code" in rtype:
                 _code = self.mint_token(
@@ -887,6 +905,7 @@ class Authorization(Endpoint):
                     token_class="access_token",
                     grant=grant,
                     session_id=_sinfo["branch_id"],
+                    **_aud_arg
                 )
                 aresp["access_token"] = _access_token.value
                 aresp["token_type"] = "Bearer"
@@ -905,6 +924,7 @@ class Authorization(Endpoint):
                 elif {"id_token", "token"}.issubset(rtype):
                     kwargs = {"access_token": _access_token.value}
 
+                kwargs.update(_aud_arg)
                 if rtype == {"id_token"}:
                     kwargs["as_if"] = "userinfo"
 
@@ -938,7 +958,7 @@ class Authorization(Endpoint):
                 )
                 return {"response_args": resp, "fragment_enc": fragment_enc}
 
-        aresp = self.extra_response_args(aresp)
+        aresp = self.extra_response_args(aresp, client_id=request["client_id"])
 
         return {"response_args": aresp, "fragment_enc": fragment_enc}
 
@@ -978,7 +998,7 @@ class Authorization(Endpoint):
         logger.debug("Known clients: {}".format(list(_context.cdb.keys())))
 
         try:
-            redirect_uri = get_uri(_context, request, "redirect_uri")
+            redirect_uri = get_uri(_context, request, "redirect_uri", self.endpoint_type)
         except (RedirectURIError, ParameterError) as err:
             return self.error_response(
                 response_info, request, "invalid_request", "{}".format(err.args)
@@ -1082,10 +1102,10 @@ class Authorization(Endpoint):
         return kwargs
 
     def process_request(
-        self,
-        request: Optional[Union[Message, dict]] = None,
-        http_info: Optional[dict] = None,
-        **kwargs,
+            self,
+            request: Optional[Union[Message, dict]] = None,
+            http_info: Optional[dict] = None,
+            **kwargs,
     ):
         """The AuthorizationRequest endpoint
 
@@ -1148,6 +1168,7 @@ class Authorization(Endpoint):
 
 
 class AllowedAlgorithms:
+
     def __init__(self, algorithm_parameters):
         self.algorithm_parameters = algorithm_parameters
 

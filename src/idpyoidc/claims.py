@@ -1,10 +1,7 @@
-from functools import cmp_to_key
 from typing import Callable
 from typing import Optional
 
 from cryptojwt import KeyJar
-from cryptojwt.jwe import SUPPORTED
-from cryptojwt.jws.jws import SIGNER_ALGS
 from cryptojwt.key_jar import init_key_jar
 from cryptojwt.utils import importer
 
@@ -125,7 +122,7 @@ class Claims(ImpExp):
 
         return keyjar, _uri_path
 
-    def get_base_url(self, configuration: dict):
+    def get_base_url(self, configuration: dict, entity_id: Optional[str]=""):
         raise NotImplementedError()
 
     def get_id(self, configuration: dict):
@@ -135,9 +132,12 @@ class Claims(ImpExp):
         return None
 
     def get_jwks(self, keyjar):
-        return None
+        return keyjar.export_jwks()
 
-    def handle_keys(self, configuration: dict, keyjar: Optional[KeyJar] = None):
+    def handle_keys(self,
+                    configuration: dict,
+                    keyjar: Optional[KeyJar] = None,
+                    entity_id: Optional[str] = ""):
         _jwks = _jwks_uri = None
         _id = self.get_id(configuration)
         keyjar, uri_path = self._keyjar(keyjar, configuration, entity_id=_id)
@@ -150,7 +150,7 @@ class Claims(ImpExp):
         if "jwks_uri" in configuration:  # simple
             _jwks_uri = configuration.get("jwks_uri")
         elif uri_path:
-            _base_url = self.get_base_url(configuration)
+            _base_url = self.get_base_url(configuration, entity_id=entity_id)
             _jwks_uri = add_path(_base_url, uri_path)
         else:  # jwks or nothing
             _jwks = self.get_jwks(keyjar)
@@ -158,7 +158,11 @@ class Claims(ImpExp):
         return {"keyjar": keyjar, "jwks": _jwks, "jwks_uri": _jwks_uri}
 
     def load_conf(
-        self, configuration: dict, supports: dict, keyjar: Optional[KeyJar] = None
+            self,
+            configuration: dict,
+            supports: dict,
+            keyjar: Optional[KeyJar] = None,
+            entity_id: Optional[str] = ""
     ) -> KeyJar:
         for attr, val in configuration.items():
             if attr in ["preference", "capabilities"]:
@@ -170,7 +174,7 @@ class Claims(ImpExp):
 
         self.locals(configuration)
 
-        for key, val in self.handle_keys(configuration, keyjar=keyjar).items():
+        for key, val in self.handle_keys(configuration, keyjar=keyjar, entity_id=entity_id).items():
             if key == "keyjar":
                 keyjar = val
             elif val:
@@ -215,42 +219,3 @@ class Claims(ImpExp):
             return default
         else:
             return _val
-
-
-SIGNING_ALGORITHM_SORT_ORDER = ["RS", "ES", "PS", "HS"]
-
-
-def cmp(a, b):
-    return (a > b) - (a < b)
-
-
-def alg_cmp(a, b):
-    if a == "none":
-        return 1
-    elif b == "none":
-        return -1
-
-    _pos1 = SIGNING_ALGORITHM_SORT_ORDER.index(a[0:2])
-    _pos2 = SIGNING_ALGORITHM_SORT_ORDER.index(b[0:2])
-    if _pos1 == _pos2:
-        return (a > b) - (a < b)
-    elif _pos1 > _pos2:
-        return 1
-    else:
-        return -1
-
-
-def get_signing_algs():
-    # Assumes Cryptojwt
-    _list = list(SIGNER_ALGS.keys())
-    # know how to do none but should not
-    _list.remove("none")
-    return sorted(_list, key=cmp_to_key(alg_cmp))
-
-
-def get_encryption_algs():
-    return SUPPORTED["alg"]
-
-
-def get_encryption_encs():
-    return SUPPORTED["enc"]

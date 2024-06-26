@@ -1,8 +1,8 @@
 import logging
+import uuid
 from typing import Callable
 from typing import Optional
 from typing import Union
-import uuid
 
 from cryptojwt.jwe.exception import JWEException
 from cryptojwt.jws.exception import NoSuitableSigningKeys
@@ -35,6 +35,7 @@ class BackChannelAuthentication(Endpoint):
     response_placement = "url"
     endpoint_name = "backchannel_authentication_endpoint"
     name = "backchannel_authentication"
+    endpoint_type = "oidc"
 
     _supports = {
         "backchannel_token_delivery_modes_supported": ["poll", "ping", "push"],

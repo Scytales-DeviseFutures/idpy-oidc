@@ -1,6 +1,6 @@
+import uuid
 from typing import Optional
 from typing import Union
-import uuid
 
 from idpyoidc.message import Message
 from idpyoidc.message import oauth2
@@ -17,6 +17,7 @@ class PushedAuthorization(Authorization):
     response_placement = "body"
     response_format = "json"
     name = "pushed_authorization"
+    endpoint_type = "oauth2"
 
     def __init__(self, upstream_get, **kwargs):
         Authorization.__init__(self, upstream_get, **kwargs)

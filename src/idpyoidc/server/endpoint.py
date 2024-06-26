@@ -84,6 +84,7 @@ class Endpoint(Node):
     error_cls = ResponseMessage
     endpoint_name = ""
     endpoint_path = ""
+    endpoint_type = ""
     name = ""
     request_format = "urlencoded"
     request_placement = "query"
@@ -165,11 +166,11 @@ class Endpoint(Node):
         except IssuerNotFound as err:
             if lap:
                 return self.error_cls(error=err)
+            # Find a client ID I believe will work
             client_id = self.find_client_keys(err.args[0])
             if not client_id:
                 return self.error_cls(error=err)
             else:
-                # Fund a client ID I believe will work
                 self.verify_request(
                     request=request,
                     keyjar=keyjar,
@@ -227,17 +228,19 @@ class Endpoint(Node):
 
         # Verify that the client is allowed to do this
         auth_info = self.client_authentication(req, http_info, endpoint=self, **kwargs)
+        LOGGER.debug(f"parse_request:auth_info:{auth_info}")
 
-        if "client_id" in auth_info:
-            req["client_id"] = auth_info["client_id"]
+        _client_id = auth_info.get("client_id", "")
+        if _client_id:
+            req["client_id"] = _client_id
 
             _auth_method = auth_info.get("method")
             if _auth_method and _auth_method not in ["public", "none"]:
                 req["authenticated"] = True
-
-            _client_id = auth_info["client_id"]
         else:
-            _client_id = req.get("client_id")
+            _client_id = req.get("client_id", None)
+
+        LOGGER.debug(f"parse_request:auth_info:{auth_info}")
 
         # verify that the request message is correct, may have to do it twice
         err_response = self.verify_request(
@@ -272,10 +275,11 @@ class Endpoint(Node):
         authn_info = verify_client(request=request, http_info=http_info, **kwargs)
 
         LOGGER.debug("authn_info: %s", authn_info)
-        if authn_info == {} and self.client_authn_method and len(self.client_authn_method):
-            LOGGER.debug("client_authn_method: %s", self.client_authn_method)
-            raise UnAuthorizedClient("Authorization failed")
-        if "client_id" not in authn_info and authn_info.get("method") != "none":
+        if authn_info == {}:
+            if self.client_authn_method and len(self.client_authn_method):
+                LOGGER.debug("client_authn_method: %s", self.client_authn_method)
+                raise UnAuthorizedClient("Authorization failed")
+        elif "client_id" not in authn_info and authn_info.get("method") != "none":
             raise UnAuthorizedClient("Authorization failed")
         return authn_info
 

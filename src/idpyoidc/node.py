@@ -3,20 +3,18 @@ from typing import Optional
 from typing import Union
 
 from cryptojwt import KeyJar
-from cryptojwt.key_jar import build_keyjar
 from cryptojwt.key_jar import init_key_jar
 
-from idpyoidc.client.defaults import DEFAULT_KEY_DEFS
 from idpyoidc.configure import Configuration
 from idpyoidc.impexp import ImpExp
 from idpyoidc.util import instantiate
 
 
 def create_keyjar(
-        keyjar: Optional[KeyJar] = None,
-        conf: Optional[Union[dict, Configuration]] = None,
-        key_conf: Optional[dict] = None,
-        id: Optional[str] = "",
+    keyjar: Optional[KeyJar] = None,
+    conf: Optional[Union[dict, Configuration]] = None,
+    key_conf: Optional[dict] = None,
+    id: Optional[str] = "",
 ):
     if keyjar is None:
         if key_conf:
@@ -51,7 +49,7 @@ def make_keyjar(
         key_conf: Optional[dict] = None,
         issuer_id: Optional[str] = "",
         client_id: Optional[str] = "",
-    ):
+):
     if keyjar is False:
         return None
 
@@ -80,10 +78,10 @@ def make_keyjar(
                 keyjar = KeyJar()
                 keyjar.add_symmetric(client_id, _key)
                 keyjar.add_symmetric("", _key)
-        else:
-            keyjar = build_keyjar(DEFAULT_KEY_DEFS)
-            if issuer_id:
-                keyjar.import_jwks(keyjar.export_jwks(private=True), issuer_id)
+        # else:
+        #     keyjar = build_keyjar(DEFAULT_KEY_DEFS)
+        #     if issuer_id:
+        #         keyjar.import_jwks(keyjar.export_jwks(private=True), issuer_id)
 
     return keyjar
 
@@ -125,15 +123,15 @@ class Unit(ImpExp):
     init_args = ["upstream_get"]
 
     def __init__(
-            self,
-            upstream_get: Callable = None,
-            keyjar: Optional[Union[KeyJar, bool]] = None,
-            httpc: Optional[object] = None,
-            httpc_params: Optional[dict] = None,
-            config: Optional[Union[Configuration, dict]] = None,
-            key_conf: Optional[dict] = None,
-            issuer_id: Optional[str] = "",
-            client_id: Optional[str] = "",
+        self,
+        upstream_get: Callable = None,
+        keyjar: Optional[Union[KeyJar, bool]] = None,
+        httpc: Optional[object] = None,
+        httpc_params: Optional[dict] = None,
+        config: Optional[Union[Configuration, dict]] = None,
+        key_conf: Optional[dict] = None,
+        issuer_id: Optional[str] = "",
+        client_id: Optional[str] = "",
     ):
         ImpExp.__init__(self)
         self.upstream_get = upstream_get
@@ -157,18 +155,21 @@ class Unit(ImpExp):
         return None
 
     def get_attribute(self, attr, *args):
-        try:
-            val = getattr(self, attr)
-        except AttributeError:
-            if self.upstream_get:
-                return self.upstream_get("attribute", attr)
-            else:
-                return None
-        else:
-            if val is None and self.upstream_get:
-                return self.upstream_get("attribute", attr)
-            else:
+        val = getattr(self, attr, None)
+        if val:
+            return val
+
+        cntx = getattr(self, "context", None)
+        if cntx:
+            val = getattr(cntx, attr, None)
+            if val:
                 return val
+
+        # Go upstairs if possible
+        if self.upstream_get:
+            return self.upstream_get("attribute", attr)
+        else:
+            return val
 
     def set_attribute(self, attr, val):
         setattr(self, attr, val)
@@ -180,9 +181,9 @@ class Unit(ImpExp):
 def topmost_unit(unit):
     if hasattr(unit, "upstream_get"):
         if unit.upstream_get:
-            next_unit = unit.upstream_get("unit")
-            if next_unit:
-                unit = topmost_unit(next_unit)
+            superior = unit.upstream_get("unit")
+            if superior:
+                unit = topmost_unit(superior)
 
     return unit
 
@@ -191,16 +192,16 @@ class ClientUnit(Unit):
     name = ""
 
     def __init__(
-            self,
-            upstream_get: Callable = None,
-            httpc: Optional[object] = None,
-            httpc_params: Optional[dict] = None,
-            keyjar: Optional[KeyJar] = None,
-            context: Optional[ImpExp] = None,
-            config: Optional[Union[Configuration, dict]] = None,
-            # jwks_uri: Optional[str] = "",
-            entity_id: Optional[str] = "",
-            key_conf: Optional[dict] = None,
+        self,
+        upstream_get: Callable = None,
+        httpc: Optional[object] = None,
+        httpc_params: Optional[dict] = None,
+        keyjar: Optional[KeyJar] = None,
+        context: Optional[ImpExp] = None,
+        config: Optional[Union[Configuration, dict]] = None,
+        # jwks_uri: Optional[str] = "",
+        entity_id: Optional[str] = "",
+        key_conf: Optional[dict] = None,
     ):
         if config is None:
             config = {}
@@ -232,16 +233,16 @@ class ClientUnit(Unit):
 # Neither client nor Server
 class Collection(Unit):
     def __init__(
-            self,
-            upstream_get: Callable = None,
-            keyjar: Optional[KeyJar] = None,
-            httpc: Optional[object] = None,
-            httpc_params: Optional[dict] = None,
-            config: Optional[Union[Configuration, dict]] = None,
-            entity_id: Optional[str] = "",
-            key_conf: Optional[dict] = None,
-            functions: Optional[dict] = None,
-            claims: Optional[dict] = None,
+        self,
+        upstream_get: Callable = None,
+        keyjar: Optional[KeyJar] = None,
+        httpc: Optional[object] = None,
+        httpc_params: Optional[dict] = None,
+        config: Optional[Union[Configuration, dict]] = None,
+        entity_id: Optional[str] = "",
+        key_conf: Optional[dict] = None,
+        functions: Optional[dict] = None,
+        claims: Optional[dict] = None,
     ):
         if config is None:
             config = {}

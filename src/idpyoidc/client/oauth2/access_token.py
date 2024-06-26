@@ -7,8 +7,8 @@ from idpyoidc.client.oauth2.utils import get_state_parameter
 from idpyoidc.client.service import Service
 from idpyoidc.message import oauth2
 from idpyoidc.message.oauth2 import ResponseMessage
+from idpyoidc.metadata import get_signing_algs
 from idpyoidc.time_util import time_sans_frac
-from idpyoidc.claims import get_signing_algs
 
 LOGGER = logging.getLogger(__name__)
 
@@ -34,8 +34,8 @@ class AccessToken(Service):
         "token_endpoint_auth_signing_alg": get_signing_algs,
     }
 
-    def __init__(self, upstream_get, conf=None):
-        Service.__init__(self, upstream_get, conf=conf)
+    def __init__(self, upstream_get, conf=None, **kwargs):
+        Service.__init__(self, upstream_get, conf=conf, **kwargs)
         self.pre_construct.append(self.oauth_pre_construct)
 
     def update_service_context(self, resp, key: Optional[str] = "", **kwargs):
