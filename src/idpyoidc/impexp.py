@@ -107,11 +107,11 @@ class ImpExp:
         pass
 
     def load_attr(
-            self,
-            cls: Any,
-            item: Any,
-            init_args: Optional[dict] = None,
-            load_args: Optional[dict] = None,
+        self,
+        cls: Any,
+        item: Any,
+        init_args: Optional[dict] = None,
+        load_args: Optional[dict] = None,
     ) -> Any:
         if load_args:
             _kwargs = {"load_args": load_args}
@@ -123,11 +123,11 @@ class ImpExp:
 
         if cls in [None, 0, "", bool]:
             if cls == "" and item.startswith("BYTES:"):
-                val = base64.b64decode(item[len("BYTES:"):].encode("utf-8"))
+                val = base64.b64decode(item[len("BYTES:") :].encode("utf-8"))
             else:
                 val = item
         elif cls == b"":
-            val = base64.b64decode(item[len("BYTES:"):].encode("utf-8"))
+            val = base64.b64decode(item[len("BYTES:") :].encode("utf-8"))
         elif cls == {}:
             val = {k: self.load_attr(type2cls(v), v, init_args, load_args) for k, v in item.items()}
         elif cls == []:
@@ -190,8 +190,11 @@ class ImpExp:
 
             _cls_init_args = getattr(cls, "init_args", {})
 
-            for param, target in {"upstream_get": "unit_get", "conf": "conf",
-                                  "token_handler_args": "token_handler_args"}.items():
+            for param, target in {
+                "upstream_get": "unit_get",
+                "conf": "conf",
+                "token_handler_args": "token_handler_args",
+            }.items():
                 target_val = getattr(self, target, None)
                 if not target_val:
                     continue

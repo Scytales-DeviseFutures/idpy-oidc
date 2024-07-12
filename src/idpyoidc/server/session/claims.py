@@ -45,14 +45,14 @@ class ClaimsInterface:
     def _get_module(self, usage, context):
         module = None
         if usage == "userinfo":
-            module = context.upstream_get("endpoint","userinfo")
+            module = context.upstream_get("endpoint", "userinfo")
         elif usage == "id_token":
             try:
                 module = context.session_manager.token_handler["id_token"]
             except KeyError:
                 raise ServiceError("No support for ID Tokens")
         elif usage == "introspection":
-            module = context.upstream_get("endpoint","introspection")
+            module = context.upstream_get("endpoint", "introspection")
         elif usage == "access_token":
             try:
                 module = context.session_manager.token_handler["access_token"]

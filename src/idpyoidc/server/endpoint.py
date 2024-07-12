@@ -185,7 +185,7 @@ class Endpoint(Node):
         request: Union[Message, dict, str],
         http_info: Optional[dict] = None,
         verify_args: Optional[dict] = None,
-        **kwargs
+        **kwargs,
     ):
         """
 
@@ -215,7 +215,7 @@ class Endpoint(Node):
                         "jwt",
                         keyjar=_keyjar,
                         verify=_context.httpc_params["verify"],
-                        **kwargs
+                        **kwargs,
                     )
                 elif self.request_format == "url":  # A whole URL not just the query part
                     parts = urlparse(request)
@@ -306,7 +306,7 @@ class Endpoint(Node):
         self,
         response_args: Union[Message, dict],
         request: Optional[Union[Message, dict]] = None,
-        **kwargs
+        **kwargs,
     ) -> dict:
         _context = self.upstream_get("context")
         for meth in self.post_construct:
@@ -318,7 +318,7 @@ class Endpoint(Node):
         self,
         request: Optional[Union[Message, dict]] = None,
         http_info: Optional[dict] = None,
-        **kwargs
+        **kwargs,
     ) -> Union[Message, dict]:
         """
 
@@ -332,7 +332,7 @@ class Endpoint(Node):
         self,
         response_args: Optional[dict] = None,
         request: Optional[Union[Message, dict]] = None,
-        **kwargs
+        **kwargs,
     ):
         """
         Construct the response
@@ -353,7 +353,7 @@ class Endpoint(Node):
         self,
         response_args: Optional[dict] = None,
         request: Optional[Union[Message, dict]] = None,
-        **kwargs
+        **kwargs,
     ) -> dict:
         return self.construct(response_args, request, **kwargs)
 
@@ -362,7 +362,7 @@ class Endpoint(Node):
         response_args: Optional[dict] = None,
         request: Optional[Union[Message, dict]] = None,
         error: Optional[str] = "",
-        **kwargs
+        **kwargs,
     ) -> dict:
         """
         :param response_args: Information to use when constructing the response

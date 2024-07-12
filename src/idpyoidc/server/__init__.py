@@ -9,12 +9,14 @@ from cryptojwt import KeyJar
 
 from idpyoidc.client.defaults import DEFAULT_KEY_DEFS
 from idpyoidc.node import Unit
+
 # from idpyoidc.server import authz
 # from idpyoidc.server.client_authn import client_auth_setup
 from idpyoidc.server.configure import ASConfiguration
 from idpyoidc.server.configure import OPConfiguration
 from idpyoidc.server.endpoint import Endpoint
 from idpyoidc.server.endpoint_context import EndpointContext
+
 # from idpyoidc.server.session.manager import create_session_manager
 # from idpyoidc.server.user_authn.authn_context import populate_authn_broker
 from idpyoidc.server.util import allow_refresh_token
@@ -35,16 +37,16 @@ class Server(Unit):
     parameter = {"context": EndpointContext}
 
     def __init__(
-            self,
-            conf: Union[dict, OPConfiguration, ASConfiguration],
-            keyjar: Optional[KeyJar] = None,
-            cwd: Optional[str] = "",
-            cookie_handler: Optional[Any] = None,
-            httpc: Optional[Callable] = None,
-            upstream_get: Optional[Callable] = None,
-            httpc_params: Optional[dict] = None,
-            entity_id: Optional[str] = "",
-            key_conf: Optional[dict] = None,
+        self,
+        conf: Union[dict, OPConfiguration, ASConfiguration],
+        keyjar: Optional[KeyJar] = None,
+        cwd: Optional[str] = "",
+        cookie_handler: Optional[Any] = None,
+        httpc: Optional[Callable] = None,
+        upstream_get: Optional[Callable] = None,
+        httpc_params: Optional[dict] = None,
+        entity_id: Optional[str] = "",
+        key_conf: Optional[dict] = None,
     ):
         self.entity_id = entity_id or conf.get("entity_id", None)
         if not self.entity_id:
@@ -84,7 +86,7 @@ class Server(Unit):
             cwd=cwd,
             cookie_handler=cookie_handler,
             keyjar=self.keyjar,
-            entity_id=self.entity_id
+            entity_id=self.entity_id,
         )
 
         # Need to have context in place before doing this

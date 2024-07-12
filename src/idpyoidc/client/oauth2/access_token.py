@@ -1,4 +1,5 @@
 """Implements the service that talks to the Access Token endpoint."""
+
 import logging
 from typing import Optional
 

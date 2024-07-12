@@ -1,4 +1,5 @@
 """Configuration management for OP"""
+
 import copy
 import logging
 import os
@@ -607,7 +608,7 @@ DEFAULT_EXTENDED_CONF = {
         },
     },
     "base_url": "https://{domain}:{port}",
-    "client_authn_methods": CLIENT_AUTHN_METHOD
+    "client_authn_methods": CLIENT_AUTHN_METHOD,
 }
 
 DEFAULT_OIDC_ENDPOINTS = {

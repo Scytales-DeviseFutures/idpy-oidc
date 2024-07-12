@@ -1,4 +1,5 @@
 """Utilities"""
+
 import logging
 import secrets
 from http.cookiejar import Cookie

@@ -63,7 +63,7 @@ def push_authorization(request_args, service, **kwargs):
         url=_context.provider_info["pushed_authorization_request_endpoint"],
         data=_body,
         headers=_headers,
-        **_httpc_params
+        **_httpc_params,
     )
 
     if resp.status_code == 200:
@@ -82,9 +82,9 @@ def push_authorization(request_args, service, **kwargs):
 
 
 def add_support(
-        services,
-        http_client=None,
-        authn_method="",
+    services,
+    http_client=None,
+    authn_method="",
 ):
     """
     Add the necessary pieces to support Pushed authorization.

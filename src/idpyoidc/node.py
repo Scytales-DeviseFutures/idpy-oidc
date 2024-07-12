@@ -44,11 +44,11 @@ def create_keyjar(
 
 
 def make_keyjar(
-        keyjar: Optional[Union[KeyJar, bool]] = None,
-        config: Optional[Union[Configuration, dict]] = None,
-        key_conf: Optional[dict] = None,
-        issuer_id: Optional[str] = "",
-        client_id: Optional[str] = "",
+    keyjar: Optional[Union[KeyJar, bool]] = None,
+    config: Optional[Union[Configuration, dict]] = None,
+    key_conf: Optional[dict] = None,
+    issuer_id: Optional[str] = "",
+    client_id: Optional[str] = "",
 ):
     if keyjar is False:
         return None

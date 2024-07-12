@@ -147,7 +147,7 @@ def userinfo_post_parse_request(request, client_id, context, auth_info, **kwargs
     # The signature of the JWS is verified, now for checking the
     # content
 
-    if _dpop["htu"] != _http_info["url"].split('?')[0]:
+    if _dpop["htu"] != _http_info["url"].split("?")[0]:
         raise ValueError("htu in DPoP does not match the HTTP URI")
 
     if _dpop["htm"] != _http_info["method"]:

@@ -1,4 +1,5 @@
 """Implements RFC7662"""
+
 import logging
 from typing import Optional
 

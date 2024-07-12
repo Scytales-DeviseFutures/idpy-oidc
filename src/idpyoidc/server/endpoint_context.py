@@ -106,16 +106,16 @@ class EndpointContext(OidcContext):
     init_args = ["upstream_get", "conf"]
 
     def __init__(
-            self,
-            conf: Union[dict, OPConfiguration],
-            upstream_get: Callable,
-            cwd: Optional[str] = "",
-            cookie_handler: Optional[Any] = None,
-            httpc: Optional[Any] = None,
-            server_type: Optional[str] = "",
-            entity_id: Optional[str] = "",
-            keyjar: Optional[KeyJar] = None,
-            claims_class: Optional[Claims] = None,
+        self,
+        conf: Union[dict, OPConfiguration],
+        upstream_get: Callable,
+        cwd: Optional[str] = "",
+        cookie_handler: Optional[Any] = None,
+        httpc: Optional[Any] = None,
+        server_type: Optional[str] = "",
+        entity_id: Optional[str] = "",
+        keyjar: Optional[KeyJar] = None,
+        claims_class: Optional[Claims] = None,
     ):
         _id = entity_id or conf.get("issuer", "")
         OidcContext.__init__(self, conf, entity_id=_id)
@@ -251,10 +251,8 @@ class EndpointContext(OidcContext):
         self.setup_authentication()
 
         self.session_manager = SessionManager(
-            self.token_handler_args,
-            sub_func=self._sub_func,
-            conf=conf,
-            upstream_get=self.unit_get)
+            self.token_handler_args, sub_func=self._sub_func, conf=conf, upstream_get=self.unit_get
+        )
 
         self.do_userinfo()
 
@@ -276,8 +274,9 @@ class EndpointContext(OidcContext):
             return authz.Implicit(self.unit_get)
 
     def setup_client_authn_methods(self):
-        self.client_authn_methods = client_auth_setup(self.unit_get,
-                                                      self.conf.get("client_authn_methods"))
+        self.client_authn_methods = client_auth_setup(
+            self.unit_get, self.conf.get("client_authn_methods")
+        )
 
     def setup_login_hint_lookup(self):
         _conf = self.conf.get("login_hint_lookup")
@@ -438,9 +437,7 @@ class EndpointContext(OidcContext):
     def setup_authentication(self):
         _conf = self.conf.get("authentication")
         if _conf:
-            self.authn_broker = populate_authn_broker(
-                _conf, self.unit_get, self.template_handler
-            )
+            self.authn_broker = populate_authn_broker(_conf, self.unit_get, self.template_handler)
         else:
             self.authn_broker = {}
 

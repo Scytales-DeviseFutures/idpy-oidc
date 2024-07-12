@@ -2,6 +2,7 @@
 Implements a service context. A Service context is used to keep information that are
 common between all the services that are used by OAuth2 client or OpenID Connect Relying Party.
 """
+
 import hashlib
 import logging
 from typing import Callable
@@ -177,8 +178,9 @@ class ServiceContext(ImpExp):
         for key, val in kwargs.items():
             setattr(self, key, val)
 
-        self.keyjar = self.claims.load_conf(config.conf, supports=self.supports(), keyjar=keyjar,
-                                            entity_id=self.entity_id)
+        self.keyjar = self.claims.load_conf(
+            config.conf, supports=self.supports(), keyjar=keyjar, entity_id=self.entity_id
+        )
 
         _jwks_uri = self.provider_info.get("jwks_uri")
         if _jwks_uri:

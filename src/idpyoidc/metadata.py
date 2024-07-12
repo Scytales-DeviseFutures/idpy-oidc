@@ -140,11 +140,13 @@ class Metadata(ImpExp):
     def get_jwks(self, keyjar):
         return None
 
-    def handle_keys(self,
-                    configuration: dict,
-                    keyjar: Optional[KeyJar] = None,
-                    base_url: Optional[str] = "",
-                    entity_id: Optional[str] = ""):
+    def handle_keys(
+        self,
+        configuration: dict,
+        keyjar: Optional[KeyJar] = None,
+        base_url: Optional[str] = "",
+        entity_id: Optional[str] = "",
+    ):
         _jwks = _jwks_uri = None
         _id = self.get_id(configuration)
         keyjar, uri_path = self._keyjar(keyjar, configuration, entity_id=_id)
@@ -164,8 +166,7 @@ class Metadata(ImpExp):
         return {"keyjar": keyjar, "jwks": _jwks, "jwks_uri": _jwks_uri}
 
     def load_conf(
-            self, configuration, supports, keyjar: Optional[KeyJar] = None,
-            base_url: Optional[str] = ""
+        self, configuration, supports, keyjar: Optional[KeyJar] = None, base_url: Optional[str] = ""
     ):
         for attr, val in configuration.items():
             if attr == "preference":

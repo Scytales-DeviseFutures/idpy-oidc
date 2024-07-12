@@ -1,4 +1,5 @@
 """Configuration management for Client"""
+
 import copy
 from typing import Dict
 from typing import List

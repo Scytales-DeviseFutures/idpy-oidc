@@ -1,4 +1,5 @@
 """The service that talks to the OAuth2 Authorization endpoint."""
+
 import logging
 from typing import List
 from typing import Optional

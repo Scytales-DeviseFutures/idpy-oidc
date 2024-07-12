@@ -93,14 +93,14 @@ class DPoPProof(Message):
 
 
 def dpop_header(
-        service_context: ServiceContext,
-        service_endpoint: str,
-        http_method: str,
-        headers: Optional[dict] = None,
-        token: Optional[str] = "",
-        nonce: Optional[str] = "",
-        endpoint_url: Optional[str] = "",
-        **kwargs
+    service_context: ServiceContext,
+    service_endpoint: str,
+    http_method: str,
+    headers: Optional[dict] = None,
+    token: Optional[str] = "",
+    nonce: Optional[str] = "",
+    endpoint_url: Optional[str] = "",
+    **kwargs,
 ) -> dict:
     """
 

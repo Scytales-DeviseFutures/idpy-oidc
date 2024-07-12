@@ -122,7 +122,7 @@ class Claims(ImpExp):
 
         return keyjar, _uri_path
 
-    def get_base_url(self, configuration: dict, entity_id: Optional[str]=""):
+    def get_base_url(self, configuration: dict, entity_id: Optional[str] = ""):
         raise NotImplementedError()
 
     def get_id(self, configuration: dict):
@@ -134,10 +134,9 @@ class Claims(ImpExp):
     def get_jwks(self, keyjar):
         return keyjar.export_jwks()
 
-    def handle_keys(self,
-                    configuration: dict,
-                    keyjar: Optional[KeyJar] = None,
-                    entity_id: Optional[str] = ""):
+    def handle_keys(
+        self, configuration: dict, keyjar: Optional[KeyJar] = None, entity_id: Optional[str] = ""
+    ):
         _jwks = _jwks_uri = None
         _id = self.get_id(configuration)
         keyjar, uri_path = self._keyjar(keyjar, configuration, entity_id=_id)
@@ -158,11 +157,11 @@ class Claims(ImpExp):
         return {"keyjar": keyjar, "jwks": _jwks, "jwks_uri": _jwks_uri}
 
     def load_conf(
-            self,
-            configuration: dict,
-            supports: dict,
-            keyjar: Optional[KeyJar] = None,
-            entity_id: Optional[str] = ""
+        self,
+        configuration: dict,
+        supports: dict,
+        keyjar: Optional[KeyJar] = None,
+        entity_id: Optional[str] = "",
     ) -> KeyJar:
         for attr, val in configuration.items():
             if attr in ["preference", "capabilities"]:

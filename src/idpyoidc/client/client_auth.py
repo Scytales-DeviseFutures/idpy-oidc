@@ -1,4 +1,5 @@
 """Implementation of a number of client authentication methods."""
+
 import base64
 import logging
 from typing import Optional
@@ -30,6 +31,7 @@ LOGGER = logging.getLogger(__name__)
 __author__ = "roland hedberg"
 
 DEFAULT_ACCESS_TOKEN_TYPE = "Bearer"
+
 
 class AuthnFailure(Exception):
     """Unspecified Authentication failure"""
@@ -138,8 +140,8 @@ class ClientSecretBasic(ClientAuthnMethod):
         :param service: A :py:class:`idpyoidc.client.service.Service` instance
         """
         if (
-                isinstance(request, AccessTokenRequest)
-                and request["grant_type"] == "authorization_code"
+            isinstance(request, AccessTokenRequest)
+            and request["grant_type"] == "authorization_code"
         ):
             if "client_id" not in request:
                 try:
@@ -277,8 +279,9 @@ def find_token(request, token_type, service, **kwargs):
     except KeyError:
         # Get the latest acquired token.
         _state = kwargs.get("state", kwargs.get("key"))
-        _arg = service.upstream_get("context").cstate.get_set(_state, claim=[token_type,
-                                                                             "token_type"])
+        _arg = service.upstream_get("context").cstate.get_set(
+            _state, claim=[token_type, "token_type"]
+        )
         return _arg.get("access_token")
 
 
@@ -302,7 +305,8 @@ def find_token_info(request: Union[Message, dict], token_type: str, service, **k
     _state = kwargs.get("state", kwargs.get("key"))
     if _state:
         _token_info = service.upstream_get("context").cstate.get_set(
-            _state, claim=[token_type, "token_type"])
+            _state, claim=[token_type, "token_type"]
+        )
     else:
         _token_info = {"token_type": DEFAULT_ACCESS_TOKEN_TYPE}
 

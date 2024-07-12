@@ -2,6 +2,7 @@
 Implements a database with branches with N nodes (SessionInstance instances)
 that ends in a Grant instances.
 """
+
 import logging
 from typing import Callable
 from typing import List

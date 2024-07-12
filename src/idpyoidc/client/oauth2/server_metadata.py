@@ -1,4 +1,5 @@
 """The service that talks to the OAuth2 provider info discovery endpoint."""
+
 import logging
 from typing import Optional
 
@@ -38,7 +39,7 @@ class ServerMetadata(Service):
         :return: Service endpoint
         """
         try:
-            _iss = self.upstream_get("attribute","issuer")
+            _iss = self.upstream_get("attribute", "issuer")
         except AttributeError:
             _iss = self.endpoint
 
@@ -134,7 +135,7 @@ class ServerMetadata(Service):
         # is loaded not necessarily that any keys are fetched.
         if "jwks_uri" in resp:
             LOGGER.debug(f"'jwks_uri' in provider info: {resp['jwks_uri']}")
-            _hp = self.upstream_get("attribute","httpc_params")
+            _hp = self.upstream_get("attribute", "httpc_params")
             if _hp:
                 if "verify" in _hp and "verify" not in _keyjar.httpc_params:
                     _keyjar.httpc_params["verify"] = _hp["verify"]

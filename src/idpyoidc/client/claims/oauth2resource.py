@@ -4,6 +4,7 @@ from idpyoidc.client import claims
 from idpyoidc.message.oauth2 import OAuthProtectedResourceRequest
 from idpyoidc.client.claims.transform import array_or_singleton
 
+
 class Claims(claims.Claims):
     _supports = {
         "resource": None,
@@ -18,7 +19,7 @@ class Claims(claims.Claims):
         "client_registration_types": [],
         "organization_name": None,
         "resource_policy_uri": None,
-        "resource_tos_uri": None
+        "resource_tos_uri": None,
     }
 
     callback_path = {}

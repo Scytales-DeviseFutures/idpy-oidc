@@ -1,4 +1,5 @@
 """ The basic Service class upon which all the specific services are built. """
+
 import copy
 import json
 import logging
@@ -77,7 +78,7 @@ class Service(ImpExp):
     _callback_path = {}
 
     def __init__(
-            self, upstream_get: Callable, conf: Optional[Union[dict, Configuration]] = None, **kwargs
+        self, upstream_get: Callable, conf: Optional[Union[dict, Configuration]] = None, **kwargs
     ):
         ImpExp.__init__(self)
 
@@ -268,7 +269,7 @@ class Service(ImpExp):
         obj = self.upstream_get("context").claims
         # initiate the request as in an instance of the self.msg_type
         # message type
-        if(obj.__class__.__module__ == "idpyoidc.client.claims.oauth2resource"):
+        if obj.__class__.__module__ == "idpyoidc.client.claims.oauth2resource":
             request = self.msg_type(**_args, set_defaults=False)
         else:
             request = self.msg_type(**_args)
@@ -338,7 +339,7 @@ class Service(ImpExp):
         return self.upstream_get("context").provider_info[self.endpoint_name]
 
     def get_authn_header(
-            self, request: Union[dict, Message], authn_method: Optional[str] = "", **kwargs
+        self, request: Union[dict, Message], authn_method: Optional[str] = "", **kwargs
     ) -> dict:
         """
         Construct an authorization specification to be sent in the
@@ -373,11 +374,11 @@ class Service(ImpExp):
         return {}
 
     def get_headers(
-            self,
-            request: Union[dict, Message],
-            http_method: str,
-            authn_method: Optional[str] = "",
-            **kwargs,
+        self,
+        request: Union[dict, Message],
+        http_method: str,
+        authn_method: Optional[str] = "",
+        **kwargs,
     ) -> dict:
         """
 
@@ -412,7 +413,7 @@ class Service(ImpExp):
         return _headers
 
     def get_request_parameters(
-            self, request_args=None, method="", request_body_type="", authn_method="", **kwargs
+        self, request_args=None, method="", request_body_type="", authn_method="", **kwargs
     ) -> dict:
         """
         Builds the request message and constructs the HTTP headers.
@@ -517,7 +518,7 @@ class Service(ImpExp):
         return response
 
     def gather_verify_arguments(
-            self, response: Optional[Union[dict, Message]] = None, behaviour_args: Optional[dict] = None
+        self, response: Optional[Union[dict, Message]] = None, behaviour_args: Optional[dict] = None
     ):
         """
         Need to add some information before running verify()
@@ -577,12 +578,12 @@ class Service(ImpExp):
         return resp
 
     def parse_response(
-            self,
-            info,
-            sformat: Optional[str] = "",
-            state: Optional[str] = "",
-            behaviour_args: Optional[dict] = None,
-            **kwargs,
+        self,
+        info,
+        sformat: Optional[str] = "",
+        state: Optional[str] = "",
+        behaviour_args: Optional[dict] = None,
+        **kwargs,
     ):
         """
         This the start of a pipeline that will:
@@ -718,12 +719,12 @@ class Service(ImpExp):
         return f"{base_url}/{path}/{hex}"
 
     def construct_uris(
-            self,
-            base_url: str,
-            hex: bytes,
-            context: OidcContext,
-            targets: Optional[List[str]] = None,
-            response_types: Optional[list] = None,
+        self,
+        base_url: str,
+        hex: bytes,
+        context: OidcContext,
+        targets: Optional[List[str]] = None,
+        response_types: Optional[list] = None,
     ):
         if not targets:
             targets = self._callback_path.keys()

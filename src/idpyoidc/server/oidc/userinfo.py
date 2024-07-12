@@ -159,7 +159,7 @@ class UserInfo(Endpoint):
             info = _cntxt.claims_interface.get_user_claims(
                 _session_info["user_id"],
                 claims_restriction=_claims_restriction,
-                client_id=_session_info["client_id"]
+                client_id=_session_info["client_id"],
             )
             info["sub"] = _grant.sub
             if _grant.add_acr_value("userinfo"):

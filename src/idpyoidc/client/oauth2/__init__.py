@@ -51,7 +51,7 @@ class Client(Entity):
         verify_ssl: Optional[bool] = True,
         jwks_uri: Optional[str] = "",
         client_type: Optional[str] = "",
-        **kwargs
+        **kwargs,
     ):
         """
 
@@ -118,7 +118,7 @@ class Client(Entity):
         response_body_type: Optional[str] = "",
         request_args: Optional[dict] = None,
         behaviour_args: Optional[dict] = None,
-        **kwargs
+        **kwargs,
     ):
         _srv = self._service[request_type]
 
@@ -148,7 +148,7 @@ class Client(Entity):
         body: Optional[dict] = None,
         response_body_type: Optional[str] = "",
         headers: Optional[dict] = None,
-        **kwargs
+        **kwargs,
     ):
         """
 
@@ -197,7 +197,7 @@ class Client(Entity):
         body: Optional[dict] = None,
         response_body_type: Optional[str] = "",
         headers: Optional[dict] = None,
-        **kwargs
+        **kwargs,
     ) -> Message:
         """
         The method that sends the request and handles the response returned.
